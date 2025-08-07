@@ -90,7 +90,6 @@ TYPES: BEGIN OF ty_mcha,
        END OF ty_mcha.
 
 
-
 TYPES: BEGIN OF ty_aufm,
          mblnr TYPE aufm-mblnr,
          mjahr TYPE aufm-mjahr,
@@ -369,7 +368,7 @@ FORM get_data.
 
   IF gt_final IS NOT INITIAL.
 
-SELECT *
+    SELECT *
       FROM zpp_yarn_track
       INTO TABLE gt_zpp_yarn_track
       FOR ALL ENTRIES IN gt_final
@@ -532,7 +531,7 @@ FORM process.
         gw_allocvalueschar TYPE bapi1003_alloc_values_char,
         gt_allocvaluescurr TYPE STANDARD TABLE OF  bapi1003_alloc_values_curr WITH HEADER LINE,
         gw_allocvaluescurr TYPE  bapi1003_alloc_values_curr,
-      lt_return          TYPE STANDARD TABLE OF bapiret2,
+        lt_return          TYPE STANDARD TABLE OF bapiret2,
         lt_mcha            TYPE STANDARD TABLE OF ty_mcha,
         ls_mcha            TYPE ty_mcha,
         lt_makt_pref       TYPE STANDARD TABLE OF ty_makt,
@@ -990,7 +989,7 @@ SORT gt_allocvalueschar ASCENDING BY charact.
            zcott_code
            zlead_time
       FROM zpp_ctn_lead_tim
-      INTO TABLE gt_lead_time
+      INTO CORRESPONDING FIELDS OF TABLE gt_lead_time
       FOR ALL ENTRIES IN gt_final
       WHERE zyarn_code = gt_final-single_ymatnr
         AND zplant     = gt_final-werks.
