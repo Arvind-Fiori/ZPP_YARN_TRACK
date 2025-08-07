@@ -83,6 +83,12 @@ TYPES: BEGIN OF ty_mseg_clb,
          bwtar TYPE mseg-bwtar,
        END OF ty_mseg_clb.
 
+TYPES: BEGIN OF ty_mcha,
+         werks TYPE mcha-werks,
+         charg TYPE mcha-charg,
+         matnr TYPE mcha-matnr,
+       END OF ty_mcha.
+
 TYPES: BEGIN OF ty_aufm,
          mblnr TYPE aufm-mblnr,
          mjahr TYPE aufm-mjahr,
@@ -135,6 +141,10 @@ DATA : gt_makt     TYPE STANDARD TABLE OF ty_makt,
        gs_final    TYPE ty_final,
        gs_final_lc TYPE ty_final,
        gt_final_lc TYPE STANDARD TABLE OF ty_final.
+
+CONSTANTS: gc_msgid TYPE symsgid VALUE 'ZPP_YARN_TRACK',
+           gc_msg_material_not_extended TYPE symsgno VALUE '001',
+           gc_msg_yarn_not_found TYPE symsgno VALUE '002'.
 
 TYPES : BEGIN OF ty_lead,
           werks         TYPE marc-werks,
@@ -358,13 +368,13 @@ FORM get_data.
   IF gt_final IS NOT INITIAL.
 
     SELECT *
-           FROM zpp_yarn_track
-           INTO TABLE gt_zpp_yarn_track
-           FOR ALL ENTRIES IN gt_final
-           WHERE testing_dt = gt_final-testing_dt
-           AND   werks      = gt_final-werks
-           AND   matnr      = gt_final-matnr
-           AND   lot_no     = gt_final-lot_no.
+      FROM zpp_yarn_track
+      INTO TABLE gt_zpp_yarn_track
+      FOR ALL ENTRIES IN gt_final
+      WHERE testing_dt = gt_final-testing_dt
+        AND werks      = gt_final-werks
+        AND matnr      = gt_final-matnr
+        AND lot_no     = gt_final-lot_no.
 
     SORT gt_zpp_yarn_track ASCENDING BY  testing_dt werks matnr lot_no.
 
@@ -520,7 +530,31 @@ FORM process.
         gw_allocvalueschar TYPE bapi1003_alloc_values_char,
         gt_allocvaluescurr TYPE STANDARD TABLE OF  bapi1003_alloc_values_curr WITH HEADER LINE,
         gw_allocvaluescurr TYPE  bapi1003_alloc_values_curr,
-        lt_return          TYPE STANDARD TABLE OF bapiret2.
+        lt_return          TYPE STANDARD TABLE OF bapiret2,
+        lt_mcha            TYPE STANDARD TABLE OF ty_mcha,
+        ls_mcha            TYPE ty_mcha,
+        lt_makt_pref       TYPE STANDARD TABLE OF ty_makt,
+        ls_makt_pref       TYPE ty_makt.
+
+  IF gt_mseg IS NOT INITIAL.
+    SELECT werks charg matnr
+      FROM mcha
+      INTO TABLE lt_mcha
+      FOR ALL ENTRIES IN gt_mseg
+      WHERE werks = gt_mseg-werks
+        AND charg = gt_mseg-charg.
+    SORT lt_mcha BY werks charg.
+    DELETE ADJACENT DUPLICATES FROM lt_mcha COMPARING werks charg.
+
+    SELECT mandt matnr spras maktx maktg
+      FROM makt
+      INTO TABLE lt_makt_pref
+      FOR ALL ENTRIES IN lt_mcha
+      WHERE matnr = lt_mcha-matnr
+        AND spras = 'EN'.
+    SORT lt_makt_pref BY matnr.
+    DELETE ADJACENT DUPLICATES FROM lt_makt_pref COMPARING matnr.
+  ENDIF.
 
   SORT gt_marc  ASCENDING BY matnr werks.
   SORT gt_makt  ASCENDING BY matnr.
@@ -541,7 +575,7 @@ FORM process.
                                              werks = gs_final-werks BINARY SEARCH.
     IF sy-subrc NE 0.
       gs_final-icon = '@0A@'.
-      gs_final-msg  = 'Material is not extended in this plant'.
+      MESSAGE ID gc_msgid TYPE 'S' NUMBER gc_msg_material_not_extended INTO gs_final-msg.
     ENDIF.
 
     READ TABLE gt_makt INTO gs_makt WITH KEY matnr = gs_final-matnr BINARY SEARCH.
@@ -683,11 +717,23 @@ FORM process.
               IF sy-subrc EQ 0.
                 gs_final_lc-mix_batch1   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-mix_batch1 IS NOT INITIAL.
-                  SELECT SINGLE matnr FROM mcha INTO gs_final_lc-mix_matnr1 WHERE werks = gs_final_lc-werks
-                  AND   charg = gs_final_lc-mix_batch1.
+                  READ TABLE lt_mcha INTO ls_mcha WITH KEY werks = gs_final_lc-werks charg = gs_final_lc-mix_batch1 BINARY SEARCH.
                   IF sy-subrc = 0.
-                    SELECT SINGLE maktx FROM makt INTO gs_final_lc-mix_matnr1_des WHERE matnr = gs_final_lc-mix_matnr1
-                    AND  spras = 'EN'.
+                    gs_final_lc-mix_matnr1 = ls_mcha-matnr.
+                  ELSE.
+                    SELECT SINGLE matnr FROM mcha INTO gs_final_lc-mix_matnr1
+                      WHERE werks = gs_final_lc-werks
+                        AND charg = gs_final_lc-mix_batch1.
+                  ENDIF.
+                  IF gs_final_lc-mix_matnr1 IS NOT INITIAL.
+                    READ TABLE lt_makt_pref INTO ls_makt_pref WITH KEY matnr = gs_final_lc-mix_matnr1 BINARY SEARCH.
+                    IF sy-subrc = 0.
+                      gs_final_lc-mix_matnr1_des = ls_makt_pref-maktx.
+                    ELSE.
+                      SELECT SINGLE maktx FROM makt INTO gs_final_lc-mix_matnr1_des
+                        WHERE matnr = gs_final_lc-mix_matnr1
+                          AND spras = 'EN'.
+                    ENDIF.
                   ENDIF.
                 ENDIF.
               ENDIF.
@@ -784,12 +830,23 @@ FORM process.
               IF sy-subrc EQ 0.
                 gs_final_lc-single_ybatch   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-single_ybatch IS NOT INITIAL.
-                  SELECT SINGLE matnr FROM mcha INTO gs_final_lc-single_ymatnr WHERE werks = gs_final_lc-werks
-                  AND   charg = gs_final_lc-single_ybatch.
+                  READ TABLE lt_mcha INTO ls_mcha WITH KEY werks = gs_final_lc-werks charg = gs_final_lc-single_ybatch BINARY SEARCH.
                   IF sy-subrc = 0.
-                    SELECT SINGLE maktx FROM makt INTO gs_final_lc-single_ymatnr_des WHERE matnr = gs_final_lc-single_ymatnr
-                    AND  spras = 'EN'.
-
+                    gs_final_lc-single_ymatnr = ls_mcha-matnr.
+                  ELSE.
+                    SELECT SINGLE matnr FROM mcha INTO gs_final_lc-single_ymatnr
+                      WHERE werks = gs_final_lc-werks
+                        AND charg = gs_final_lc-single_ybatch.
+                  ENDIF.
+                  IF gs_final_lc-single_ymatnr IS NOT INITIAL.
+                    READ TABLE lt_makt_pref INTO ls_makt_pref WITH KEY matnr = gs_final_lc-single_ymatnr BINARY SEARCH.
+                    IF sy-subrc = 0.
+                      gs_final_lc-single_ymatnr_des = ls_makt_pref-maktx.
+                    ELSE.
+                      SELECT SINGLE maktx FROM makt INTO gs_final_lc-single_ymatnr_des
+                        WHERE matnr = gs_final_lc-single_ymatnr
+                          AND spras = 'EN'.
+                    ENDIF.
                     SELECT SINGLE matkl FROM mara INTO @DATA(lv_matkl) WHERE matnr = @gs_final_lc-single_ymatnr.
                   ENDIF.
                 ENDIF.
@@ -862,11 +919,23 @@ FORM process.
               IF sy-subrc EQ 0.
                 gs_final_lc-mix_batch1   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-mix_batch1 IS NOT INITIAL.
-                  SELECT SINGLE matnr FROM mcha INTO gs_final_lc-mix_matnr1 WHERE werks = gs_final_lc-werks
-                  AND   charg = gs_final_lc-mix_batch1.
+                  READ TABLE lt_mcha INTO ls_mcha WITH KEY werks = gs_final_lc-werks charg = gs_final_lc-mix_batch1 BINARY SEARCH.
                   IF sy-subrc = 0.
-                    SELECT SINGLE maktx FROM makt INTO gs_final_lc-mix_matnr1_des WHERE matnr = gs_final_lc-mix_matnr1
-                    AND  spras = 'EN'.
+                    gs_final_lc-mix_matnr1 = ls_mcha-matnr.
+                  ELSE.
+                    SELECT SINGLE matnr FROM mcha INTO gs_final_lc-mix_matnr1
+                      WHERE werks = gs_final_lc-werks
+                        AND charg = gs_final_lc-mix_batch1.
+                  ENDIF.
+                  IF gs_final_lc-mix_matnr1 IS NOT INITIAL.
+                    READ TABLE lt_makt_pref INTO ls_makt_pref WITH KEY matnr = gs_final_lc-mix_matnr1 BINARY SEARCH.
+                    IF sy-subrc = 0.
+                      gs_final_lc-mix_matnr1_des = ls_makt_pref-maktx.
+                    ELSE.
+                      SELECT SINGLE maktx FROM makt INTO gs_final_lc-mix_matnr1_des
+                        WHERE matnr = gs_final_lc-mix_matnr1
+                          AND spras = 'EN'.
+                    ENDIF.
                   ENDIF.
                 ENDIF.
               ENDIF.
@@ -904,7 +973,7 @@ FORM process.
 
       ELSE.
         gs_final-icon = '@0A@'.
-        gs_final-msg  = 'Yarn Code Not Found in AUSP'.
+        MESSAGE ID gc_msgid TYPE 'S' NUMBER gc_msg_yarn_not_found INTO gs_final-msg.
         MODIFY gt_final_01 FROM gs_final TRANSPORTING icon msg.
       ENDIF.
 
@@ -914,12 +983,15 @@ FORM process.
   ENDLOOP.
 
   IF gt_final IS NOT INITIAL.
-    SELECT *
-           FROM zpp_ctn_lead_tim
-           INTO TABLE gt_lead_time
-           FOR ALL ENTRIES IN gt_final
-           WHERE zyarn_code = gt_final-single_ymatnr
-           AND   zplant     = gt_final-werks.
+    SELECT zplant
+           zyarn_code
+           zcott_code
+           zlead_time
+      FROM zpp_ctn_lead_tim
+      INTO CORRESPONDING FIELDS OF TABLE gt_lead_time
+      FOR ALL ENTRIES IN gt_final
+      WHERE zyarn_code = gt_final-single_ymatnr
+        AND zplant     = gt_final-werks.
   ENDIF.
 
 
@@ -939,8 +1011,31 @@ FORM cott_fiber1_mixing2.
          int_num          TYPE i,
          lv_batch_cnt     TYPE i,
          batch_found_date TYPE sy-datum,
-         lv_lead_logic    TYPE flag.
+         lv_lead_logic    TYPE flag,
+         lt_mcha          TYPE STANDARD TABLE OF ty_mcha,
+         ls_mcha          TYPE ty_mcha,
+         lt_makt_pref     TYPE STANDARD TABLE OF ty_makt,
+         ls_makt_pref     TYPE ty_makt.
 
+  IF gt_mseg IS NOT INITIAL.
+    SELECT werks charg matnr
+      FROM mcha
+      INTO TABLE lt_mcha
+      FOR ALL ENTRIES IN gt_mseg
+      WHERE werks = gt_mseg-werks
+        AND charg = gt_mseg-charg.
+    SORT lt_mcha BY werks charg.
+    DELETE ADJACENT DUPLICATES FROM lt_mcha COMPARING werks charg.
+
+    SELECT mandt matnr spras maktx maktg
+      FROM makt
+      INTO TABLE lt_makt_pref
+      FOR ALL ENTRIES IN lt_mcha
+      WHERE matnr = lt_mcha-matnr
+        AND spras = 'EN'.
+    SORT lt_makt_pref BY matnr.
+    DELETE ADJACENT DUPLICATES FROM lt_makt_pref COMPARING matnr.
+  ENDIF.
 
   IF gt_final IS NOT INITIAL.
 
@@ -985,49 +1080,39 @@ FORM cott_fiber1_mixing2.
       ENDIF.
     ENDLOOP.
 
+    DATA: lt_matnr TYPE SORTED TABLE OF mara-matnr WITH UNIQUE KEY table_line.
+
     IF gt_aufm IS NOT INITIAL.
-
-      SELECT matnr
-             mtart
-             matkl
-             FROM mara
-             APPENDING TABLE gt_mara
-             FOR ALL ENTRIES IN gt_aufm
-             WHERE matnr = gt_aufm-matnr.
-
-      SELECT mandt
-             matnr
-             spras
-             maktx
-             maktg
-             FROM makt
-             APPENDING TABLE gt_makt
-             FOR ALL ENTRIES IN gt_aufm
-             WHERE matnr = gt_aufm-matnr
-             AND   spras = 'EN'.
-
+      LOOP AT gt_aufm INTO DATA(ls_aufm).
+        INSERT ls_aufm-matnr INTO TABLE lt_matnr.
+      ENDLOOP.
     ENDIF.
 
     IF gt_lead_time IS NOT INITIAL.
+      LOOP AT gt_lead_time INTO DATA(ls_lead_time).
+        INSERT ls_lead_time-zcott_code INTO TABLE lt_matnr.
+      ENDLOOP.
+    ENDIF.
 
+    IF lt_matnr IS NOT INITIAL.
       SELECT matnr
              mtart
              matkl
-             FROM mara
-             APPENDING TABLE gt_mara
-             FOR ALL ENTRIES IN gt_lead_time
-             WHERE matnr = gt_lead_time-zcott_code.
+        FROM mara
+        INTO TABLE gt_mara
+        FOR ALL ENTRIES IN lt_matnr
+        WHERE matnr = lt_matnr-table_line.
 
       SELECT mandt
              matnr
              spras
              maktx
              maktg
-             FROM makt
-             APPENDING TABLE gt_makt
-             FOR ALL ENTRIES IN gt_lead_time
-             WHERE matnr = gt_lead_time-zcott_code
-             AND   spras = 'EN'.
+        FROM makt
+        INTO TABLE gt_makt
+        FOR ALL ENTRIES IN lt_matnr
+        WHERE matnr = lt_matnr-table_line
+          AND spras = 'EN'.
     ENDIF.
 
   ENDIF.
