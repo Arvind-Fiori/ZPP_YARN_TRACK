@@ -11,7 +11,7 @@
 *&  Details             :  Yarn To Fiber Treacability Report...
 *&  Devid               *  6710
 *&-------------------------------------------------------------------------------------
-REPORT zpp_yarn_track.
+REPORT ZSATPACK.
 
 TABLES marc.
 
@@ -88,6 +88,8 @@ TYPES: BEGIN OF ty_mcha,
          charg TYPE mcha-charg,
          matnr TYPE mcha-matnr,
        END OF ty_mcha.
+
+
 
 TYPES: BEGIN OF ty_aufm,
          mblnr TYPE aufm-mblnr,
@@ -372,7 +374,7 @@ FORM get_data.
            matnr
            lot_no
            FROM zpp_yarn_track
-           INTO TABLE gt_zpp_yarn_track
+           INTO CORRESPONDING FIELDS OF TABLE gt_zpp_yarn_track
            FOR ALL ENTRIES IN gt_final
            WHERE testing_dt = gt_final-testing_dt
            AND   werks      = gt_final-werks
@@ -533,7 +535,31 @@ FORM process.
         gw_allocvalueschar TYPE bapi1003_alloc_values_char,
         gt_allocvaluescurr TYPE STANDARD TABLE OF  bapi1003_alloc_values_curr WITH HEADER LINE,
         gw_allocvaluescurr TYPE  bapi1003_alloc_values_curr,
-        lt_return          TYPE STANDARD TABLE OF bapiret2.
+      lt_return          TYPE STANDARD TABLE OF bapiret2,
+        lt_mcha            TYPE STANDARD TABLE OF ty_mcha,
+        ls_mcha            TYPE ty_mcha,
+        lt_makt_pref       TYPE STANDARD TABLE OF ty_makt,
+        ls_makt_pref       TYPE ty_makt.
+
+  IF gt_mseg IS NOT INITIAL.
+    SELECT werks charg matnr
+      FROM mcha
+      INTO TABLE lt_mcha
+      FOR ALL ENTRIES IN gt_mseg
+      WHERE werks = gt_mseg-werks
+        AND charg = gt_mseg-charg.
+    SORT lt_mcha BY werks charg.
+    DELETE ADJACENT DUPLICATES FROM lt_mcha COMPARING werks charg.
+
+    SELECT mandt matnr spras maktx maktg
+      FROM makt
+      INTO TABLE lt_makt_pref
+      FOR ALL ENTRIES IN lt_mcha
+      WHERE matnr = lt_mcha-matnr
+        AND spras = 'EN'.
+    SORT lt_makt_pref BY matnr.
+    DELETE ADJACENT DUPLICATES FROM lt_makt_pref COMPARING matnr.
+  ENDIF.
 
   SORT gt_marc  ASCENDING BY matnr werks.
   SORT gt_makt  ASCENDING BY matnr.
