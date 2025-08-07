@@ -11,7 +11,7 @@
 *&  Details             :  Yarn To Fiber Treacability Report...
 *&  Devid               *  6710
 *&-------------------------------------------------------------------------------------
-REPORT zpp_yarn_track.
+REPORT ZSATPACK.
 
 TABLES marc.
 
@@ -88,6 +88,7 @@ TYPES: BEGIN OF ty_mcha,
          charg TYPE mcha-charg,
          matnr TYPE mcha-matnr,
        END OF ty_mcha.
+
 
 TYPES: BEGIN OF ty_aufm,
          mblnr TYPE aufm-mblnr,
@@ -713,7 +714,7 @@ FORM process.
                   return          = lt_return.
 
               SORT gt_allocvalueschar ASCENDING BY charact.
-              READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
+             READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
               IF sy-subrc EQ 0.
                 gs_final_lc-mix_batch1   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-mix_batch1 IS NOT INITIAL.
@@ -826,7 +827,7 @@ FORM process.
                   return          = lt_return.
 
               SORT gt_allocvalueschar ASCENDING BY charact.
-              READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
+ READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
               IF sy-subrc EQ 0.
                 gs_final_lc-single_ybatch   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-single_ybatch IS NOT INITIAL.
@@ -914,7 +915,7 @@ FORM process.
                   allocvaluescurr = gt_allocvaluescurr
                   return          = lt_return.
 
-              SORT gt_allocvalueschar ASCENDING BY charact.
+SORT gt_allocvalueschar ASCENDING BY charact.
               READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
               IF sy-subrc EQ 0.
                 gs_final_lc-mix_batch1   = gw_allocvalueschar-value_char.
