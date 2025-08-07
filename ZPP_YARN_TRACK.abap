@@ -369,17 +369,14 @@ FORM get_data.
 
   IF gt_final IS NOT INITIAL.
 
-    SELECT testing_dt
-           werks
-           matnr
-           lot_no
-           FROM zpp_yarn_track
-           INTO CORRESPONDING FIELDS OF TABLE gt_zpp_yarn_track
-           FOR ALL ENTRIES IN gt_final
-           WHERE testing_dt = gt_final-testing_dt
-           AND   werks      = gt_final-werks
-           AND   matnr      = gt_final-matnr
-           AND   lot_no     = gt_final-lot_no.
+SELECT *
+      FROM zpp_yarn_track
+      INTO TABLE gt_zpp_yarn_track
+      FOR ALL ENTRIES IN gt_final
+      WHERE testing_dt = gt_final-testing_dt
+        AND werks      = gt_final-werks
+        AND matnr      = gt_final-matnr
+        AND lot_no     = gt_final-lot_no.
 
     SORT gt_zpp_yarn_track ASCENDING BY  testing_dt werks matnr lot_no.
 
@@ -718,16 +715,26 @@ FORM process.
                   return          = lt_return.
 
               SORT gt_allocvalueschar ASCENDING BY charact.
-              READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
+             READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
               IF sy-subrc EQ 0.
                 gs_final_lc-mix_batch1   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-mix_batch1 IS NOT INITIAL.
                   READ TABLE lt_mcha INTO ls_mcha WITH KEY werks = gs_final_lc-werks charg = gs_final_lc-mix_batch1 BINARY SEARCH.
                   IF sy-subrc = 0.
                     gs_final_lc-mix_matnr1 = ls_mcha-matnr.
+                  ELSE.
+                    SELECT SINGLE matnr FROM mcha INTO gs_final_lc-mix_matnr1
+                      WHERE werks = gs_final_lc-werks
+                        AND charg = gs_final_lc-mix_batch1.
+                  ENDIF.
+                  IF gs_final_lc-mix_matnr1 IS NOT INITIAL.
                     READ TABLE lt_makt_pref INTO ls_makt_pref WITH KEY matnr = gs_final_lc-mix_matnr1 BINARY SEARCH.
                     IF sy-subrc = 0.
                       gs_final_lc-mix_matnr1_des = ls_makt_pref-maktx.
+                    ELSE.
+                      SELECT SINGLE maktx FROM makt INTO gs_final_lc-mix_matnr1_des
+                        WHERE matnr = gs_final_lc-mix_matnr1
+                          AND spras = 'EN'.
                     ENDIF.
                   ENDIF.
                 ENDIF.
@@ -821,18 +828,27 @@ FORM process.
                   return          = lt_return.
 
               SORT gt_allocvalueschar ASCENDING BY charact.
-              READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
+ READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
               IF sy-subrc EQ 0.
                 gs_final_lc-single_ybatch   = gw_allocvalueschar-value_char.
                 IF gs_final_lc-single_ybatch IS NOT INITIAL.
                   READ TABLE lt_mcha INTO ls_mcha WITH KEY werks = gs_final_lc-werks charg = gs_final_lc-single_ybatch BINARY SEARCH.
                   IF sy-subrc = 0.
                     gs_final_lc-single_ymatnr = ls_mcha-matnr.
+                  ELSE.
+                    SELECT SINGLE matnr FROM mcha INTO gs_final_lc-single_ymatnr
+                      WHERE werks = gs_final_lc-werks
+                        AND charg = gs_final_lc-single_ybatch.
+                  ENDIF.
+                  IF gs_final_lc-single_ymatnr IS NOT INITIAL.
                     READ TABLE lt_makt_pref INTO ls_makt_pref WITH KEY matnr = gs_final_lc-single_ymatnr BINARY SEARCH.
                     IF sy-subrc = 0.
                       gs_final_lc-single_ymatnr_des = ls_makt_pref-maktx.
+                    ELSE.
+                      SELECT SINGLE maktx FROM makt INTO gs_final_lc-single_ymatnr_des
+                        WHERE matnr = gs_final_lc-single_ymatnr
+                          AND spras = 'EN'.
                     ENDIF.
-
                     SELECT SINGLE matkl FROM mara INTO @DATA(lv_matkl) WHERE matnr = @gs_final_lc-single_ymatnr.
                   ENDIF.
                 ENDIF.
@@ -900,7 +916,7 @@ FORM process.
                   allocvaluescurr = gt_allocvaluescurr
                   return          = lt_return.
 
-              SORT gt_allocvalueschar ASCENDING BY charact.
+SORT gt_allocvalueschar ASCENDING BY charact.
               READ TABLE  gt_allocvalueschar INTO gw_allocvalueschar WITH KEY charact = 'B_AMXD' BINARY SEARCH.
               IF sy-subrc EQ 0.
                 gs_final_lc-mix_batch1   = gw_allocvalueschar-value_char.
@@ -908,9 +924,19 @@ FORM process.
                   READ TABLE lt_mcha INTO ls_mcha WITH KEY werks = gs_final_lc-werks charg = gs_final_lc-mix_batch1 BINARY SEARCH.
                   IF sy-subrc = 0.
                     gs_final_lc-mix_matnr1 = ls_mcha-matnr.
+                  ELSE.
+                    SELECT SINGLE matnr FROM mcha INTO gs_final_lc-mix_matnr1
+                      WHERE werks = gs_final_lc-werks
+                        AND charg = gs_final_lc-mix_batch1.
+                  ENDIF.
+                  IF gs_final_lc-mix_matnr1 IS NOT INITIAL.
                     READ TABLE lt_makt_pref INTO ls_makt_pref WITH KEY matnr = gs_final_lc-mix_matnr1 BINARY SEARCH.
                     IF sy-subrc = 0.
                       gs_final_lc-mix_matnr1_des = ls_makt_pref-maktx.
+                    ELSE.
+                      SELECT SINGLE maktx FROM makt INTO gs_final_lc-mix_matnr1_des
+                        WHERE matnr = gs_final_lc-mix_matnr1
+                          AND spras = 'EN'.
                     ENDIF.
                   ENDIF.
                 ENDIF.
