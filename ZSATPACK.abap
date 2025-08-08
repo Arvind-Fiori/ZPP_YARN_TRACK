@@ -3932,29 +3932,25 @@ ENDFORM.
 
 FORM input.
 
-  SELECT qals~prueflos
-         qals~werk
-         qals~selmatnr
-
-         qamr~vorglfnr
-         qamr~merknr
-         qamr~mittelwert
-
-         qamv~verwmerkm
+  SELECT qals~prueflos,
+         qals~werk,
+         qals~selmatnr,
+         qamr~vorglfnr,
+         qamr~merknr,
+         qamr~mittelwert,
+         qamv~verwmerkm,
          qamv~kurztext
-
-         FROM qals INNER JOIN qamr
-         ON qals~prueflos EQ qamr~prueflos
-         INNER JOIN qamv
-         ON   qamr~prueflos EQ qamv~prueflos
-         AND  qamr~vorglfnr EQ qamv~vorglfnr
-         AND  qamr~merknr   EQ qamv~merknr
-         INNER JOIN mara ON qals~selmatnr EQ mara~matnr
-         INTO TABLE gt_qals
-         WHERE qals~werk     IN s_werks
-         AND   qals~selmatnr IN s_yarn
-         AND   qals~budat    EQ test_dt
-         AND   mara~matkl    EQ 'YGR'.
+    FROM qals
+    INNER JOIN qamr ON qals~prueflos = qamr~prueflos
+    INNER JOIN qamv ON qamr~prueflos = qamv~prueflos
+                   AND qamr~vorglfnr = qamv~vorglfnr
+                   AND qamr~merknr   = qamv~merknr
+    INNER JOIN mara ON qals~selmatnr = mara~matnr
+    INTO TABLE @DATA(gt_qals)
+    WHERE qals~werk     IN @s_werks
+      AND qals~selmatnr IN @s_yarn
+      AND qals~budat    =  @test_dt
+      AND mara~matkl    =  'YGR'.
 *  IF sy-subrc = 0.
 *    SELECT matnr
 *           mtart
@@ -3975,22 +3971,25 @@ FORM input.
 
   IF gt_qals IS NOT INITIAL.
     DATA(gt_qals_temp) = gt_qals.
-    SORT gt_qals_temp ASCENDING BY werk selmatnr.
+    SORT gt_qals_temp BY werk selmatnr.
     DELETE ADJACENT DUPLICATES FROM gt_qals_temp COMPARING werk selmatnr.
 
-    LOOP AT gt_qals_temp INTO gs_qals.
-      gs_final-werks      = gs_qals-werk.
-      gs_final-matnr      = gs_qals-selmatnr.
-      gs_final-matnr_50   = gs_qals-selmatnr.
-      gs_final-testing_dt = test_dt - 2220.
-      CONCATENATE gs_final-werks gs_final-matnr gs_final-lot_no gs_final-testing_dt INTO gs_final-keycomb.
-      CONDENSE gs_final-keycomb NO-GAPS.
-      APPEND gs_final TO gt_final.
-      CLEAR : gs_final.
-    ENDLOOP.
+    gt_final = REDUCE tt_final(
+                  INIT tab = gt_final
+                  FOR ls_qals IN gt_qals_temp
+                  LET lv_testing_dt = test_dt - 2220
+                      lv_keycomb    = replace( val   = |{ ls_qals-werk }{ ls_qals-selmatnr }{ gs_final-lot_no }{ lv_testing_dt }|
+                                               regex = '\s+'
+                                               with  = '' )
+                  NEXT tab = VALUE #( BASE tab
+                                      ( werks      = ls_qals-werk
+                                        matnr      = ls_qals-selmatnr
+                                        matnr_50   = ls_qals-selmatnr
+                                        testing_dt = lv_testing_dt
+                                        keycomb    = lv_keycomb ) ) ).
   ENDIF.
 
-  SORT gt_final ASCENDING BY werks matnr testing_dt.
+  SORT gt_final BY werks matnr testing_dt.
   DELETE ADJACENT DUPLICATES FROM gt_final COMPARING werks matnr testing_dt.
 
 ENDFORM.
