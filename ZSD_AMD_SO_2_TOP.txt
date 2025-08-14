@@ -1,0 +1,157 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZSD_AMD_SO_2_TOP
+*&---------------------------------------------------------------------*
+TABLES : ZMM_STOCK_UPL_2.
+
+DATA: S_KPOSN TYPE RANGE OF KONV-KPOSN.
+
+DATA : WA_BITEM              TYPE BAPISDITM,
+       WA_BITEMX             TYPE BAPISDITMX,
+       WA_BITEMX1            TYPE BAPISDITMX,
+       WA_BPARTNER           TYPE BAPIPARNR,
+       WA_BSCHEDULE          TYPE BAPISCHDL,
+       WA_BSCHEDULEX         TYPE BAPISCHDLX,
+       WA_BSALES_CFGS_REF    TYPE BAPICUCFG,
+       WA_BSALES_CFGS_INST   TYPE BAPICUINS,
+       WA_BSALES_CFGS_VALUE  TYPE BAPICUVAL,
+       WA_BSALES_CFGS_VK     TYPE BAPICUVK,
+       WA_BAPICOND           TYPE BAPICOND,
+       WA_BAPICONDX          TYPE BAPICONDX,
+       WA_ORDER_TEXT         TYPE BAPISDTEXT,
+       WA_EXTENSIONIN        TYPE BAPIPAREX,
+       WA_EXTENSIONINX       TYPE BAPIPAREX,
+       WA_VBAK               TYPE BAPE_VBAK,
+       WA_VBAKX              TYPE BAPE_VBAKX,
+       WA_VBAP               TYPE BAPE_VBAP,
+       WA_VBAPX              TYPE BAPE_VBAPX,
+       WA_ORDER_CFGS_REFINST TYPE BAPICUREF.
+
+DATA : IT_BITEM              TYPE TABLE OF BAPISDITM,
+       IT_BITEMX             TYPE TABLE OF BAPISDITMX,
+       IT_BPARTNER           TYPE TABLE OF BAPIPARNR,
+       IT_BSCHEDULE          TYPE TABLE OF BAPISCHDL,
+       IT_BSCHEDULEX         TYPE TABLE OF BAPISCHDLX,
+       IT_BSALES_CFGS_REF    TYPE TABLE OF BAPICUCFG,
+       IT_BSALES_CFGS_INST   TYPE TABLE OF BAPICUINS,
+       IT_BSALES_CFGS_VALUE  TYPE TABLE OF BAPICUVAL,
+       IT_BSALES_CFGS_VK     TYPE TABLE OF BAPICUVK,
+       IT_BAPICOND           TYPE TABLE OF BAPICOND,
+       IT_BAPICONDX          TYPE TABLE OF BAPICONDX,
+       IT_ORDER_TEXT         TYPE TABLE OF BAPISDTEXT,
+       IT_EXTENSIONIN        TYPE TABLE OF BAPIPAREX,
+       IT_EXTENSIONINX       TYPE TABLE OF BAPIPAREX,
+       IT_VBAK               TYPE TABLE OF BAPE_VBAK,
+       IT_VBAKX              TYPE TABLE OF BAPE_VBAKX,
+       IT_VBAP               TYPE TABLE OF BAPE_VBAP,
+       IT_VBAPX              TYPE TABLE OF BAPE_VBAPX,
+       IT_ORDER_CFGS_REFINST TYPE TABLE OF BAPICUREF,
+       LV_SALES_ORDER        TYPE VBELN,
+       IT_RETURN             TYPE BAPIRET2_T.
+
+TYPES : TT_TEXT   TYPE TABLE OF BAPISDTEXT,
+        TT_CONFIG TYPE TABLE OF BAPICUVAL,
+        TT_CUVK   TYPE TABLE OF BAPICUVK.
+
+DATA : LV_COUNT   TYPE CHAR6 VALUE IS INITIAL,
+       LV_LINE    TYPE CHAR4 VALUE IS INITIAL,
+       LV_CNFG_ID TYPE CHAR6 VALUE IS INITIAL,
+       LV_ROOT_ID TYPE CHAR8 VALUE IS INITIAL.
+
+DATA : WA_RETURN  TYPE BAPIRET2,
+       BAPE_VBAK  TYPE BAPE_VBAK,
+       BAPE_VBAKX TYPE BAPE_VBAKX,
+       BAPE_VBAP  TYPE BAPE_VBAP,
+       BAPE_VBAPX TYPE BAPE_VBAPX,
+       WA_HEADERX TYPE BAPISDHD1X,
+       WA_HEADER  TYPE BAPISDHD1,
+       WA_CHANGEX TYPE BAPISDH1X,
+       WA_LOGIC   TYPE BAPISDLS.
+
+DATA : LT_TEXT_IDS_VBBK TYPE STANDARD TABLE OF TDID,
+       LT_TEXT_IDS_VBBP TYPE STANDARD TABLE OF TDID,
+       LV_TEXT_ID       TYPE TDID,
+       LV_READ_SO       TYPE THEAD-TDNAME.
+
+DATA : IT_TEXT_LINES TYPE STANDARD TABLE OF TLINE,
+       LS_ORDER_TEXT TYPE BAPISDTEXT,
+       IT_CONFIG     TYPE TABLE OF CONF_OUT,
+       WA_CONFIG     TYPE CONF_OUT,
+       LV_CUOBJ      TYPE INOB-CUOBJ.
+
+TYPES : BEGIN OF TY_ERROR,
+          VBELN        TYPE VBELN,
+          ZSTATUS      TYPE ZSTATUS,
+          ZMESSAGE(70) TYPE C,
+          VBELN_N      TYPE VBELN,
+        END OF TY_ERROR.
+
+DATA : IT_ERROR TYPE STANDARD TABLE OF TY_ERROR,
+       WA_ERROR TYPE TY_ERROR.
+
+DATA : LV_SL      TYPE CHAR10,
+       IT_FCAT    TYPE LVC_T_FCAT,
+       WA_FCAT    TYPE LVC_S_FCAT,
+       G_POS      TYPE I,
+       WA_LAYOUT  TYPE SLIS_LAYOUT_ALV,
+       IT_FCATLOG TYPE SLIS_T_FIELDCAT_ALV,
+       WA_FCATLOG TYPE SLIS_FIELDCAT_ALV.
+
+LT_TEXT_IDS_VBBK = VALUE #( ( '0002' ) ( 'Z009' ) ). " Text IDs to read
+LT_TEXT_IDS_VBBP = VALUE #( ( 'Z004' ) ( 'Z011' ) ( 'Z001' ) ( '0001' ) ( 'Z003' ) ( 'Z052' )  ). " Text IDs to read
+
+TYPES : BEGIN OF TY_CABNT,
+          ATINN TYPE CABNT-ATINN,
+          SPRAS TYPE CABNT-SPRAS,
+          ADZHL TYPE CABNT-ADZHL,
+          ATBEZ TYPE CABNT-ATBEZ,
+        END OF TY_CABNT.
+
+DATA : IT_CABNT TYPE TABLE OF TY_CABNT,
+       WA_CABNT TYPE TY_CABNT.
+
+TYPES: TY_ATNAM10 TYPE RANGE OF ATNAM.
+TYPES: TY_ATNAM25 TYPE RANGE OF ATNAM.
+TYPES: TY_ATNAM65 TYPE RANGE OF ATNAM.
+
+DATA(S_ATNAM10) = VALUE TY_ATNAM10( ( SIGN = 'I' OPTION = 'EQ' LOW = 'K_SERIALNO' )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'K_CN'       )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'K_FC'       )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'K_SC'       )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'K_PC'       )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'D_CERT'     ) ).
+
+DATA(S_ATNAM25) = VALUE TY_ATNAM25( ( SIGN = 'I' OPTION = 'EQ' LOW = 'W_FN'   )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'W_FC'   )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'W_SDC'  )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'W_COC'  )
+                                    ( SIGN = 'I' OPTION = 'EQ' LOW = 'W_PRC'  ) ).
+
+DATA(S_ATNAM65) = VALUE TY_ATNAM65( ( SIGN = 'I' OPTION = 'EQ' LOW = 'C_DSCD'   ) ).
+
+TYPES: TY_ATNAM10_C TYPE RANGE OF ATINN.
+TYPES: TY_ATNAM25_C TYPE RANGE OF ATINN.
+TYPES: TY_ATNAM65_C TYPE RANGE OF ATINN.
+
+DATA(S_ATN10) = VALUE TY_ATNAM10( ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001441'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001372'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001401'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001398'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001405'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001942'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001184'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001173'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001100'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001120'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001101'  )
+                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001723'  ) ).
+
+*DATA(S_ATN25) = VALUE TY_ATNAM25( ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001184'  )
+*                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001173'  )
+*                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001100'  )
+*                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001120'  )
+*                                  ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001101'  ) ).
+*
+*DATA(S_ATN65) = VALUE TY_ATNAM65( ( SIGN = 'I' OPTION = 'EQ' LOW = '0000001723'  ) ).
+
+DATA : IT_ZMM_STOCK_UPL_2 TYPE STANDARD TABLE OF ZMM_STOCK_UPL_2,
+       WA_ZMM_STOCK_UPL_2 TYPE ZMM_STOCK_UPL_2.
