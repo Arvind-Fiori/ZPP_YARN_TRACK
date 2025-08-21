@@ -1,0 +1,29 @@
+*&---------------------------------------------------------------------*
+*& Report ZMM_ARTICLE_EXTRACTION
+*&---------------------------------------------------------------------*
+*&
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+* Module                : MM
+* ABAP Consultant       : RAHUL KOSHTI
+* Functional Consultant : BHARAT GULABVANI
+* Creation Date         : 08.08.2025
+* Description           : Develop the Article Extension Tool for Demerger Activity
+* CR                    : CR-7174
+* TR                    : ATDK9A0OUG
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+REPORT ZMM_ARTICLE_EXTRACTION.
+
+*& Includes
+INCLUDE: ZMM_ARTICLE_EXTRACTION_TOP,
+         ZMM_ARTICLE_EXTRACTION_SS,
+         ZMM_ARTICLE_EXTRACTION_SUB.
+
+*& Start of selection
+START-OF-SELECTION.
+  PERFORM F_FETCH_DATA.
+  PERFORM F_BUILD_DATA.
+  PERFORM F_FIELDCATALOG.
+  PERFORM F_DISPLAY_DATA.

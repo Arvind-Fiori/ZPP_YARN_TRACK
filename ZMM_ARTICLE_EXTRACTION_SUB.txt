@@ -1,0 +1,525 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZMM_ARTICLE_EXTRACTION_SUB
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  F_FETCH_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM F_FETCH_DATA .
+
+  IF RB1 = ABAP_TRUE OR RB2 = ABAP_TRUE.
+    SELECT MATNR
+           MATKL
+           MBRSH
+           MTART
+           FROM MARA
+           INTO TABLE GT_MARA
+           WHERE MATNR IN S_MATNR
+           AND   MATKL IN S_MATKL
+           AND   MBRSH IN S_MBRSH
+           AND   MTART IN S_MTART
+           AND   ATTYP IN S_ATTYP
+           AND   LVORM <> 'X'.
+    IF GT_MARA IS NOT INITIAL.
+      SORT GT_MARA BY MATNR.
+
+      SELECT MATNR
+             WERKS
+             DISMM
+             DISPO
+             PERKZ
+             LADGR
+             MTVFP
+             PRCTR
+             STEUC
+             FROM MARC
+             INTO TABLE GT_MARC
+             FOR ALL ENTRIES IN GT_MARA
+             WHERE MATNR = GT_MARA-MATNR
+             AND   WERKS = P_RWERKS.
+      IF GT_MARC IS NOT INITIAL.
+        SORT GT_MARC BY MATNR WERKS.
+
+        IF RB2 = ABAP_TRUE AND CB2 = ABAP_TRUE.
+          SELECT WERKS
+                 LGORT
+                 MATNR
+                 FROM MARD
+                 INTO TABLE GT_MARD
+                 FOR ALL ENTRIES IN GT_MARC
+                 WHERE MATNR = GT_MARC-MATNR
+                 AND   WERKS = GT_MARC-WERKS.
+          IF NOT GT_MARD IS INITIAL.
+            SORT GT_MARD BY MATNR WERKS.
+          ELSE.
+            MESSAGE : 'No Data Found!!' TYPE 'S' DISPLAY LIKE 'E'.
+            LEAVE TO LIST-PROCESSING.
+            EXIT.
+          ENDIF.
+        ENDIF.
+
+        IF RB2 = ABAP_TRUE AND CB2 = ABAP_FALSE AND NOT P_DWERKS IS INITIAL AND NOT S_DLGORT IS INITIAL.
+          REFRESH GT_T001L.
+          SELECT WERKS
+                 LGORT
+                 FROM T001L
+                 INTO TABLE GT_T001L
+                 WHERE WERKS =  P_DWERKS
+                 AND   LGORT IN S_DLGORT.
+          IF NOT GT_T001L IS INITIAL.
+            SORT GT_T001L BY WERKS LGORT.
+          ELSE.
+            MESSAGE : 'No Data Found!!' TYPE 'S' DISPLAY LIKE 'E'.
+            EXIT.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F_BUILD_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM F_BUILD_DATA .
+  REFRESH: GT_ERROR, GT_ZARTICLE_EXT_LOG.
+  LOOP AT GT_MARA INTO DATA(LS_MARA).
+
+    GS_HEADDATA-MATERIAL      = LS_MARA-MATNR.
+    GS_HEADDATA-MATL_TYPE     = LS_MARA-MTART.
+    GS_HEADDATA-MATL_GROUP    = LS_MARA-MATKL.
+    GS_HEADDATA-LOGDC_VIEW    = 'X'.
+
+    READ TABLE GT_MARC TRANSPORTING NO FIELDS WITH KEY MATNR = LS_MARA-MATNR
+                                                       WERKS = P_RWERKS
+                                                       BINARY SEARCH.
+    IF SY-SUBRC = 0.
+      LOOP AT GT_MARC INTO DATA(LS_MARC) FROM SY-TABIX.
+        IF LS_MARC-MATNR <> LS_MARA-MATNR OR
+           LS_MARC-WERKS <> P_RWERKS.
+          CLEAR LS_MARC.
+          EXIT.
+        ENDIF.
+
+        IF RB1 = ABAP_TRUE.
+          IF NOT LS_MARC-MATNR IS INITIAL.
+            GS_PLANTDATA-MATERIAL       =    LS_MARC-MATNR.
+            GS_PLANTDATAX-MATERIAL      =    LS_MARC-MATNR.
+          ENDIF.
+
+          IF NOT P_DWERKS IS INITIAL.
+            GS_PLANTDATA-PLANT          =    P_DWERKS.
+            GS_PLANTDATAX-PLANT         =    P_DWERKS.
+          ENDIF.
+
+          IF NOT LS_MARC-DISMM IS INITIAL.
+            GS_PLANTDATA-MRP_TYPE       =    LS_MARC-DISMM.
+            GS_PLANTDATAX-MRP_TYPE      =    'X'.
+          ENDIF.
+
+          IF NOT LS_MARC-DISPO IS INITIAL.
+            GS_PLANTDATA-MRP_CTRLER     =    LS_MARC-DISPO.
+            GS_PLANTDATAX-MRP_CTRLER    =    'X'.
+          ENDIF.
+
+          IF NOT LS_MARC-PERKZ IS INITIAL.
+            GS_PLANTDATA-PERIOD_IND    =    LS_MARC-PERKZ.
+            GS_PLANTDATAX-PERIOD_IND    =    'X'.
+          ENDIF.
+
+          IF NOT LS_MARC-LADGR IS INITIAL.
+            GS_PLANTDATA-LOADINGGRP     =    LS_MARC-LADGR.
+            GS_PLANTDATAX-LOADINGGRP    =    'X'.
+          ENDIF.
+
+          IF NOT LS_MARC-MTVFP IS INITIAL.
+            GS_PLANTDATA-AVAILCHECK     =    LS_MARC-MTVFP.
+            GS_PLANTDATAX-AVAILCHECK    =    'X'.
+          ENDIF.
+
+          IF NOT S_PRCTR-LOW IS INITIAL.
+            GS_PLANTDATA-PROFIT_CTR     =    S_PRCTR-LOW.
+            GS_PLANTDATAX-PROFIT_CTR    =    'X'.
+          ENDIF.
+
+          IF NOT LS_MARC-STEUC IS INITIAL.
+            GS_PLANTDATA-CTRL_CODE      =    LS_MARC-STEUC.
+            GS_PLANTDATAX-CTRL_CODE     =    'X'.
+          ENDIF.
+
+          APPEND GS_PLANTDATA  TO GT_PLANTDATA.
+          APPEND GS_PLANTDATAX TO GT_PLANTDATAX.
+        ELSEIF RB2 = ABAP_TRUE.
+
+          IF CB2 = ABAP_TRUE AND GT_MARD IS NOT INITIAL.
+            READ TABLE GT_MARD TRANSPORTING NO FIELDS WITH KEY MATNR = LS_MARC-MATNR
+                                                               WERKS = LS_MARC-WERKS
+                                                               BINARY SEARCH.
+            IF SY-SUBRC = 0.
+              LOOP AT GT_MARD INTO DATA(LS_MARD) FROM SY-TABIX.
+
+                IF LS_MARD-MATNR <> LS_MARC-MATNR OR
+                   LS_MARD-WERKS <> LS_MARC-WERKS.
+                  CLEAR LS_MARD.
+                  EXIT.
+                ENDIF.
+
+                IF NOT LS_MARC-MATNR IS INITIAL.
+                  GS_STORAGELOCATIONDATA-MATERIAL       =    LS_MARC-MATNR.
+                  GS_STORAGELOCATIONDATAX-MATERIAL      =    LS_MARC-MATNR.
+                ENDIF.
+
+                IF NOT P_DWERKS IS INITIAL.
+                  GS_STORAGELOCATIONDATA-PLANT          =    P_DWERKS.
+                  GS_STORAGELOCATIONDATAX-PLANT         =    P_DWERKS.
+                ENDIF.
+
+                IF NOT LS_MARD-LGORT IS INITIAL.
+                  GS_STORAGELOCATIONDATA-STGE_LOC       =    LS_MARD-LGORT.
+                  GS_STORAGELOCATIONDATAX-STGE_LOC      =    LS_MARD-LGORT.
+                ENDIF.
+
+                APPEND GS_STORAGELOCATIONDATA TO GT_STORAGELOCATIONDATA.
+                APPEND GS_STORAGELOCATIONDATAX TO GT_STORAGELOCATIONDATAX.
+                APPEND VALUE #(
+                                MANDT        = SY-MANDT
+                                ARTICLE_NO   = LS_MARA-MATNR
+                                DES_PLANT    = P_DWERKS
+                                DES_LGORT    = LS_MARD-LGORT
+                                REF_PLANT    = P_RWERKS
+                                REF_LGORT    = ''
+                                ) TO GT_ZARTICLE_EXT_LOG.
+
+                CLEAR: LS_MARD, GS_STORAGELOCATIONDATA, GS_STORAGELOCATIONDATAX.
+              ENDLOOP.
+            ENDIF.
+          ELSEIF CB2 = ABAP_FALSE AND NOT GT_T001L IS INITIAL.
+            LOOP AT GT_T001L INTO DATA(LS_T001L).
+              IF NOT LS_MARC-MATNR IS INITIAL.
+                GS_STORAGELOCATIONDATA-MATERIAL       =    LS_MARC-MATNR.
+                GS_STORAGELOCATIONDATAX-MATERIAL      =    LS_MARC-MATNR.
+              ENDIF.
+
+              IF NOT P_DWERKS IS INITIAL.
+                GS_STORAGELOCATIONDATA-PLANT          =    P_DWERKS.
+                GS_STORAGELOCATIONDATAX-PLANT         =    P_DWERKS.
+              ENDIF.
+
+              IF NOT LS_T001L-LGORT IS INITIAL.
+                GS_STORAGELOCATIONDATA-STGE_LOC       =    LS_T001L-LGORT.
+                GS_STORAGELOCATIONDATAX-STGE_LOC      =    LS_T001L-LGORT.
+              ENDIF.
+
+              APPEND GS_STORAGELOCATIONDATA TO GT_STORAGELOCATIONDATA.
+              APPEND GS_STORAGELOCATIONDATAX TO GT_STORAGELOCATIONDATAX.
+              APPEND VALUE #(
+                              MANDT        = SY-MANDT
+                              ARTICLE_NO   = LS_MARA-MATNR
+                              DES_PLANT    = P_DWERKS
+                              DES_LGORT    = LS_T001L-LGORT
+                              REF_PLANT    = P_RWERKS
+                              REF_LGORT    = ''
+                              ) TO GT_ZARTICLE_EXT_LOG.
+
+              CLEAR: GS_STORAGELOCATIONDATA, GS_STORAGELOCATIONDATAX, LS_T001L.
+            ENDLOOP. " GT_T001L
+          ENDIF.
+        ENDIF.
+
+        CLEAR: LS_MARC, GS_PLANTDATA, GS_PLANTDATAX.
+      ENDLOOP. " GT_MARC
+    ENDIF.
+
+    IF NOT GS_HEADDATA IS INITIAL AND ( NOT GT_PLANTDATA IS INITIAL OR NOT GT_STORAGELOCATIONDATA IS INITIAL ).
+
+      CALL FUNCTION 'BAPI_MATERIAL_MAINTAINDATA_RT'
+        EXPORTING
+          HEADDATA             = GS_HEADDATA
+        IMPORTING
+          RETURN               = GS_RETURN
+        TABLES
+          PLANTDATA            = GT_PLANTDATA
+          PLANTDATAX           = GT_PLANTDATAX
+          STORAGELOCATIONDATA  = GT_STORAGELOCATIONDATA
+          STORAGELOCATIONDATAX = GT_STORAGELOCATIONDATAX.
+
+      IF GS_RETURN-TYPE <> 'E'.
+        CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+          EXPORTING
+            WAIT = 'X'.
+        IF RB1 = 'X'.
+          APPEND VALUE #(
+                           MANDT        = SY-MANDT
+                           ARTICLE_NO   = LS_MARA-MATNR
+                           DES_PLANT    = P_DWERKS
+                           DES_LGORT    = ''
+                           REF_PLANT    = P_RWERKS
+                           REF_LGORT    = ''
+                           TYPE         = GS_RETURN-TYPE
+                           MSG_NO       = GS_RETURN-NUMBER
+                           MESSAGE      = GS_RETURN-MESSAGE
+                           CREATED_ON   = SY-DATUM
+                           CREATED_AT   = SY-UZEIT
+                           CREATED_BY   = SY-UNAME
+                           ) TO GT_ZARTICLE_EXT_LOG.
+        ELSEIF RB2  = 'X'.
+          APPEND VALUE #(
+                         ARTICLE_NO       = LS_MARA-MATNR
+                         DES_PLANT        = P_DWERKS
+                         TYPE             = GS_RETURN-TYPE
+                         MSG_NO           = GS_RETURN-NUMBER
+                         MESSAGE          = GS_RETURN-MESSAGE
+                         CREATED_ON       = SY-DATUM
+                         CREATED_AT       = SY-UZEIT
+                         CREATED_BY       = SY-UNAME
+                        ) TO GT_ERROR.
+        ENDIF.
+      ELSEIF GS_RETURN-TYPE = 'E'.
+        CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+
+        IF RB1 = 'X'.
+          APPEND VALUE #(
+                          MANDT        = SY-MANDT
+                          ARTICLE_NO   = LS_MARA-MATNR
+                          DES_PLANT    = P_DWERKS
+                          DES_LGORT    = ''
+                          REF_PLANT    = P_RWERKS
+                          REF_LGORT    = ''
+                          TYPE         = GS_RETURN-TYPE
+                          MSG_NO       = GS_RETURN-NUMBER
+                          MESSAGE      = GS_RETURN-MESSAGE
+                          CREATED_ON   = SY-DATUM
+                          CREATED_AT   = SY-UZEIT
+                          CREATED_BY   = SY-UNAME
+                          ) TO GT_ZARTICLE_EXT_LOG.
+        ELSEIF RB2 = 'X'.
+          APPEND VALUE #(
+                          ARTICLE_NO       = LS_MARA-MATNR
+                          DES_PLANT        = P_DWERKS
+                          TYPE             = GS_RETURN-TYPE
+                          MSG_NO           = GS_RETURN-NUMBER
+                          MESSAGE          = GS_RETURN-MESSAGE
+                          CREATED_ON       = SY-DATUM
+                          CREATED_AT       = SY-UZEIT
+                          CREATED_BY       = SY-UNAME
+                         ) TO GT_ERROR.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+
+    CLEAR: LS_MARA, GS_RETURN.
+    REFRESH: GT_PLANTDATA, GT_PLANTDATAX, GT_STORAGELOCATIONDATA, GT_STORAGELOCATIONDATAX.
+  ENDLOOP.
+
+  IF NOT GT_ZARTICLE_EXT_LOG IS INITIAL.
+    IF NOT GT_ERROR IS INITIAL.
+      SORT GT_ERROR BY ARTICLE_NO DES_PLANT.
+    ENDIF.
+
+    LOOP AT GT_ZARTICLE_EXT_LOG ASSIGNING FIELD-SYMBOL(<FS_ZARTICLE_EXT_LOG>).
+      IF RB2 = ABAP_TRUE.
+        READ TABLE GT_ERROR INTO DATA(LS_ERROR) WITH KEY ARTICLE_NO = <FS_ZARTICLE_EXT_LOG>-ARTICLE_NO
+                                                         DES_PLANT  = <FS_ZARTICLE_EXT_LOG>-DES_PLANT
+                                                         BINARY SEARCH.
+        IF SY-SUBRC = 0.
+          <FS_ZARTICLE_EXT_LOG>-TYPE         =   LS_ERROR-TYPE        .
+          <FS_ZARTICLE_EXT_LOG>-MSG_NO       =   LS_ERROR-MSG_NO      .
+          <FS_ZARTICLE_EXT_LOG>-MESSAGE      =   LS_ERROR-MESSAGE     .
+          <FS_ZARTICLE_EXT_LOG>-CREATED_ON   =   LS_ERROR-CREATED_ON  .
+          <FS_ZARTICLE_EXT_LOG>-CREATED_AT   =   LS_ERROR-CREATED_AT  .
+          <FS_ZARTICLE_EXT_LOG>-CREATED_BY   =   LS_ERROR-CREATED_BY  .
+        ENDIF.
+      ENDIF.
+
+      IF <FS_ZARTICLE_EXT_LOG>-TYPE = 'E'.
+        APPEND <FS_ZARTICLE_EXT_LOG> TO GT_ZARTICLE_EXT_LOG_INSERT.
+      ELSE.
+        APPEND <FS_ZARTICLE_EXT_LOG> TO GT_ZARTICLE_EXT_LOG_DELETE.
+      ENDIF.
+      CLEAR LS_ERROR.
+    ENDLOOP.
+
+    IF NOT GT_ZARTICLE_EXT_LOG_INSERT IS INITIAL.
+      MODIFY ZARTICLE_EXT_LOG FROM TABLE GT_ZARTICLE_EXT_LOG_INSERT.
+      IF SY-SUBRC = 0.
+        COMMIT WORK AND WAIT.
+      ELSE.
+        ROLLBACK WORK.
+      ENDIF.
+    ENDIF.
+    IF NOT GT_ZARTICLE_EXT_LOG_DELETE IS INITIAL.
+      DELETE ZARTICLE_EXT_LOG FROM TABLE GT_ZARTICLE_EXT_LOG_DELETE .
+      IF SY-SUBRC = 0.
+        COMMIT WORK AND WAIT .
+      ELSE.
+        ROLLBACK WORK.
+      ENDIF.
+    ENDIF.
+    REFRESH : GT_ZARTICLE_EXT_LOG_INSERT, GT_ZARTICLE_EXT_LOG_DELETE.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F_FIELDCATALOG
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM F_FIELDCATALOG .
+
+  IF NOT GT_ZARTICLE_EXT_LOG IS INITIAL.
+    PERFORM F_FIELD USING 'ARTICLE_NO'   'GT_ZARTICLE_EXT_LOG'  'Article Number'.
+    PERFORM F_FIELD USING 'DES_PLANT'    'GT_ZARTICLE_EXT_LOG'  'Dest. Plant'.
+    PERFORM F_FIELD USING 'DES_LGORT'    'GT_ZARTICLE_EXT_LOG'  'Dest. Storage Location'.
+    PERFORM F_FIELD USING 'REF_PLANT'    'GT_ZARTICLE_EXT_LOG'  'Ref. Plant'.
+    PERFORM F_FIELD USING 'REF_LGORT'    'GT_ZARTICLE_EXT_LOG'  'Ref. Storage Location'.
+    PERFORM F_FIELD USING 'TYPE'         'GT_ZARTICLE_EXT_LOG'  'Error Type'.
+    PERFORM F_FIELD USING 'MSG_NO'       'GT_ZARTICLE_EXT_LOG'  'Error Message Number'.
+    PERFORM F_FIELD USING 'MESSAGE'      'GT_ZARTICLE_EXT_LOG'  'Error Message'.
+    PERFORM F_FIELD USING 'CREATED_ON'   'GT_ZARTICLE_EXT_LOG'  'Created On'.
+    PERFORM F_FIELD USING 'CREATED_AT'   'GT_ZARTICLE_EXT_LOG'  'Created At'.
+    PERFORM F_FIELD USING 'CREATED_BY'   'GT_ZARTICLE_EXT_LOG'  'Created By'.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F_FIELD
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*      -->P_0612   text
+*      -->P_0613   text
+*      -->P_0614   text
+*----------------------------------------------------------------------*
+FORM F_FIELD  USING    P_FIELDNAME
+                       P_TABNAME
+                       P_SCRTEXT_L.
+
+  GV_CNT = GV_CNT +  1.
+  APPEND VALUE #( COL_POS       =   GV_CNT
+                 FIELDNAME     =   P_FIELDNAME
+                 TABNAME       =   P_TABNAME
+                 SCRTEXT_L     =   P_SCRTEXT_L
+                 COL_OPT       =   'X'
+               ) TO GT_FIELDCAT_LVC.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*&      Form  F_DISPLAY_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+FORM F_DISPLAY_DATA .
+  IF NOT GT_ZARTICLE_EXT_LOG IS INITIAL AND NOT GT_FIELDCAT_LVC IS INITIAL.
+
+    DATA: LV_TOP_HEIGHT TYPE I VALUE 26,
+          LS_LAYOUT     TYPE LVC_S_LAYO.
+    LS_LAYOUT = VALUE #(
+                        ZEBRA      = 'X'
+                        CWIDTH_OPT = 'X'
+                        ).
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY_LVC'
+      EXPORTING
+        I_CALLBACK_PROGRAM          = SY-CPROG
+        I_CALLBACK_HTML_TOP_OF_PAGE = 'F_HTML_TOP_OF_PAGE'
+        IS_LAYOUT_LVC               = LS_LAYOUT
+        I_SAVE                      = 'A'
+        I_HTML_HEIGHT_TOP           = LV_TOP_HEIGHT
+        IT_FIELDCAT_LVC             = GT_FIELDCAT_LVC
+      TABLES
+        T_OUTTAB                    = GT_ZARTICLE_EXT_LOG
+      EXCEPTIONS
+        PROGRAM_ERROR               = 1
+        OTHERS                      = 2.
+    IF SY-SUBRC <> 0.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+**&---------------------------------------------------------------------*
+**&      Form  F_HTML_TOP_OF_PAGE
+**&---------------------------------------------------------------------*
+**       text
+**----------------------------------------------------------------------*
+**  -->  p1        text
+**  <--  p2        text
+**----------------------------------------------------------------------*
+FORM F_HTML_TOP_OF_PAGE USING DOCUMENT TYPE REF TO CL_DD_DOCUMENT.
+  DATA: LO_TABLE_AREA TYPE REF TO CL_DD_TABLE_AREA,
+        LO_CELL       TYPE REF TO CL_DD_TABLE_AREA,
+        LV_DATE       TYPE SDYDO_TEXT_ELEMENT,
+        LV_DWERKS     TYPE SDYDO_TEXT_ELEMENT,
+        LV_TEXT       TYPE SDYDO_TEXT_ELEMENT,
+        LV_RECORDS    TYPE SDYDO_TEXT_ELEMENT,
+        LV_UNAME      TYPE SDYDO_TEXT_ELEMENT
+        .
+  LV_TEXT = 'Article Extension Report'.
+  " Add a heading
+  CALL METHOD DOCUMENT->ADD_TEXT
+    EXPORTING
+      TEXT      = LV_TEXT
+      SAP_STYLE = CL_DD_AREA=>HEADING.
+  CALL METHOD DOCUMENT->UNDERLINE.
+
+  CALL METHOD DOCUMENT->ADD_TABLE
+    EXPORTING
+      NO_OF_COLUMNS = 2
+      BORDER        = '0'
+      WIDTH         = '20%'  "you can set any width of top area in %
+    IMPORTING
+      TABLEAREA     = LO_TABLE_AREA.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = 'Records '.
+  DESCRIBE TABLE GT_ZARTICLE_EXT_LOG LINES LV_RECORDS.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT         = LV_RECORDS
+      SAP_COLOR    = CL_DD_AREA=>LIST_TOTAL_INT
+      SAP_EMPHASIS = CL_DD_AREA=>STRONG.
+  CALL METHOD LO_TABLE_AREA->NEW_ROW.
+  "Second Row
+  CLEAR LV_UNAME.
+  LV_UNAME = SY-UNAME.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = 'User'.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = LV_UNAME.
+  CALL METHOD LO_TABLE_AREA->NEW_ROW.
+  "Third Row
+  CLEAR LV_DATE.
+  CONCATENATE SY-DATUM+6(2) SY-DATUM+4(2) SY-DATUM+0(4) INTO LV_DATE SEPARATED BY '.'.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = 'Execution Date'.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = LV_DATE.
+  CALL METHOD LO_TABLE_AREA->NEW_ROW.
+  " Forth Row
+  LV_DWERKS = P_DWERKS.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = 'Destination Plant'.
+  CALL METHOD LO_TABLE_AREA->ADD_TEXT
+    EXPORTING
+      TEXT = LV_DWERKS.
+  CALL METHOD LO_TABLE_AREA->NEW_ROW.
+ENDFORM.
