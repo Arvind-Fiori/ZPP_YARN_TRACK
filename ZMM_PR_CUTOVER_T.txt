@@ -1,0 +1,33 @@
+*&---------------------------------------------------------------------*
+*& Report ZMM_PR_CUTOVER_T
+*&---------------------------------------------------------------------*
+* Module                : MM
+* ABAP Consultant       : Vraj Patel
+* Functional Consultant : Girish Parate
+* Creation Date         : 08.08.2025
+* Description           : PR Cutover Download Tool
+* CR                    : CR-1622
+* TR                    : ATDK9A0OU5
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+REPORT ZMM_PR_CUTOVER_T.
+
+INCLUDE : ZMM_PR_CUTOVER_T_TOP,
+          ZMM_PR_CUTOVER_T_SS,
+          ZMM_PR_CUTOVER_T_FORM.
+
+START-OF-SELECTION.
+  PERFORM CHECK_VALIDATON.
+  IF LV_CHECK <> 'X'.
+    PERFORM GET_DATA.
+    PERFORM BUILD_DATA.
+    IF ( P_HDRITM = 'X' AND GT_HDRITM  IS NOT INITIAL ) OR
+       ( P_ACC    = 'X' AND GT_ACCOUNT IS NOT INITIAL ) OR
+       ( P_CUSTOM = 'X' AND GT_CUSTOM  IS NOT INITIAL ) OR
+       ( P_SERVIC = 'X' AND GT_SERVICE IS NOT INITIAL ) OR
+       ( P_JOB    = 'X' AND GT_JOBWORK IS NOT INITIAL ).
+      PERFORM ALV_OUTPUT.
+    ELSE.
+      MESSAGE 'No Data Found!!' TYPE 'S' DISPLAY LIKE 'E'.
+    ENDIF.
+  ENDIF.

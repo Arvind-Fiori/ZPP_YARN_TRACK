@@ -1,0 +1,790 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZMM_PR_CUTOVER_T_FORM
+*&---------------------------------------------------------------------*
+FORM CHECK_VALIDATON.
+  CLEAR : LV_CHECK.
+  IF S_BSART[] IS INITIAL AND S_WERKS[] IS INITIAL  AND LV_CHECK = ' '.
+    LV_CHECK = 'X'.
+    MESSAGE 'Please enter value of PR Document Type and Plant Code' TYPE 'S' DISPLAY LIKE 'E'.
+  ELSEIF S_BSART[] IS INITIAL AND LV_CHECK = ' '.
+    LV_CHECK = 'X'.
+    MESSAGE 'Please enter value of PR Document Type ' TYPE 'S' DISPLAY LIKE 'E'.
+  ELSEIF S_WERKS[] IS INITIAL AND LV_CHECK = ' '.
+    LV_CHECK = 'X'.
+    MESSAGE 'Please enter value of Plant Code ' TYPE 'S' DISPLAY LIKE 'E'.
+  ENDIF.
+  IF P_EXCEL = ' '.
+    IF P_CLEAR = 'X' AND P_UPDATE = 'X' AND LV_CHECK = ' '.
+      LV_CHECK = 'X'.
+      MESSAGE : 'Please Select Only One Check Box(Clear and Update table Or Update table) At a Time' TYPE 'S' DISPLAY LIKE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+FORM GET_DATA.
+  SELECT   EBAN~BANFN
+           EBAN~BNFPO
+           EBAN~BADAT
+           EBAN~BSART
+           EBAN~EKGRP
+           EBAN~AFNAM
+           EBAN~IDNLF
+           EBAN~BEDNR
+           EBAN~MATNR
+           EBAN~WERKS
+           EBAN~LGORT
+           EBAN~RESWK
+           EBAN~MENGE
+           EBAN~BSMNG
+           EBAN~MEINS
+           EBAN~LFDAT
+           EBAN~PREIS
+           EBAN~PEINH
+           EBAN~BWTAR
+           EBAN~CHARG
+           EBAN~KNTTP
+           EBAN~PSTYP
+           EBAN~TXZ01
+           EBAN~CUOBJ
+           EBAN~ZZJOBTYPE
+           EBAN~ZZLIFNR
+           EBAN~ZZPRICE
+           EBAN~ZZLAND1
+           EBAN~ZZUOM
+           EBAN~ZZPER
+           EBAN~ZZBASE_UOM_CONV
+           EBAN~ZZALT_UOM_CONV
+           EBAN~ZZBASE_UOM
+           EBAN~ZZATWRT
+           EBAN~ZZQUANTITY
+           EBAN~ZZBUYER
+           EBAN~ZZCONSP
+           EBAN~ZZCONSP_DIS
+           EBAN~ZZIED_NO
+           EBAN~VED_IND
+           EBAN~EBELN
+           EBAN~EBELP
+           EBAN~PACKNO
+    FROM EBAN AS EBAN
+    LEFT OUTER JOIN EKKO AS EKKO
+    ON EBAN~EBELN = EKKO~EBELN
+    AND EKKO~MEMORY = ' '
+    INTO TABLE GT_DATA_PR
+    WHERE EBAN~BANFN IN S_BANFN
+    AND   EBAN~BNFPO IN S_BNFPO
+    AND   EBAN~BADAT IN S_BADAT
+    AND   EBAN~BSART IN S_BSART
+    AND   EBAN~WERKS IN S_WERKS
+    AND   EBAN~LGORT IN S_LGORT
+    AND   EBAN~MATKL IN S_MATKL
+    AND   EBAN~KNTTP IN S_KNTTP
+    AND   EBAN~PSTYP IN S_PSTYP
+    AND   EBAN~LOEKZ NOT IN ('X' ,'L' )
+    AND   EBAN~EBAKZ NE 'X'.
+
+
+
+  IF GT_DATA_PR IS NOT INITIAL.
+    SORT GT_DATA_PR BY BANFN BNFPO.
+    DELETE ADJACENT DUPLICATES FROM GT_DATA_PR COMPARING BANFN BNFPO.
+
+    SELECT PACKNO
+           INTROW
+           SUB_PACKNO
+      FROM ESLL
+      INTO TABLE LT_ESLL
+      FOR ALL ENTRIES IN GT_DATA_PR
+      WHERE PACKNO  = GT_DATA_PR-PACKNO.
+
+    IF LT_ESLL IS NOT INITIAL.
+      SORT LT_ESLL BY PACKNO.
+
+      SELECT PACKNO
+             INTROW
+             SUB_PACKNO
+             EXTROW
+             SRVPOS
+             KTEXT1
+             MENGE
+             ACT_MENGE
+             MEINS
+             BRTWR
+             PEINH
+             NETWR
+             FORMELNR
+             FRMVAL1
+             FRMVAL2
+             FRMVAL3
+             FRMVAL4
+             FRMVAL5
+      FROM ESLL
+      INTO TABLE GT_ESLL
+      FOR ALL ENTRIES IN LT_ESLL
+      WHERE PACKNO = LT_ESLL-SUB_PACKNO
+      AND   DEL NE 'X'.
+
+      IF GT_ESLL IS NOT INITIAL.
+        SORT GT_ESLL BY PACKNO.
+      ENDIF.
+    ENDIF.
+
+    SELECT EBELN
+           EBELP
+           BANFN
+           BNFPO
+           MENGE
+           LOEKZ
+    FROM EKPO
+    INTO TABLE GT_EKPO
+    FOR ALL ENTRIES IN GT_DATA_PR
+    WHERE EBELN = GT_DATA_PR-EBELN
+    AND   EBELP = GT_DATA_PR-EBELP
+    AND   LOEKZ NOT IN ( 'L' , 'X' ).
+
+
+    IF GT_EKPO IS NOT INITIAL.
+      SORT GT_EKPO BY EBELN EBELP.
+    ENDIF.
+
+
+
+    SELECT  BANFN
+            BNFPO
+            PS_PSP_PNR
+            VBELN
+            VBELP
+            AUFNR
+            KOSTL
+            MENGE
+            VPROZ
+            SAKTO
+            ANLN1
+            ANLN2
+            NPLNR
+            ZEBKN
+      FROM EBKN
+      INTO TABLE GT_EBKN
+      FOR ALL ENTRIES IN GT_DATA_PR
+      WHERE BANFN = GT_DATA_PR-BANFN
+      AND   BNFPO = GT_DATA_PR-BNFPO.
+
+    IF GT_EBKN IS NOT INITIAL.
+      SORT GT_EBKN BY BANFN BNFPO.
+    ENDIF.
+
+
+    SELECT  BANFN
+            BNFPO
+            RSNUM
+            RSART
+            RSPOS
+            MATNR
+            BDMNG
+            MEINS
+            ENMNG
+            WERKS
+            CHARG
+            POSTP
+            SOBKZ
+            KDAUF
+            KDPOS
+            AUFNR
+            PSPEL
+      FROM RESB
+      INTO TABLE GT_RESB
+      FOR ALL ENTRIES IN GT_DATA_PR
+      WHERE BANFN = GT_DATA_PR-BANFN
+      AND   BNFPO = GT_DATA_PR-BNFPO
+      AND   XLOEK NE 'X'.
+
+    IF GT_RESB IS NOT INITIAL.
+      SORT GT_RESB BY BANFN BNFPO.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+FORM BUILD_DATA.
+  IF P_HDRITM = 'X'.
+    LOOP AT GT_DATA_PR INTO GS_DATA_PR.
+      GW_HDRITM-BANFN = GS_DATA_PR-BANFN.
+      GW_HDRITM-BNFPO = GS_DATA_PR-BNFPO.
+      CONCATENATE GS_DATA_PR-BADAT+6(2) GS_DATA_PR-BADAT+4(2) GS_DATA_PR-BADAT+0(4) INTO GW_HDRITM-BADAT SEPARATED BY '.'.
+      CONDENSE GW_HDRITM-BADAT.
+      GW_HDRITM-BSART = GS_DATA_PR-BSART.
+      GW_HDRITM-EKGRP = GS_DATA_PR-EKGRP.
+      GW_HDRITM-AFNAM = GS_DATA_PR-AFNAM.
+      GW_HDRITM-IDNLF = GS_DATA_PR-IDNLF.
+      GW_HDRITM-BEDNR = GS_DATA_PR-BANFN.
+      GW_HDRITM-MATNR = GS_DATA_PR-MATNR.
+      GW_HDRITM-WERKS = GS_DATA_PR-WERKS.
+      GW_HDRITM-LGORT = GS_DATA_PR-LGORT.
+      GW_HDRITM-RESWK = GS_DATA_PR-RESWK.
+      GW_HDRITM-MENGE = GS_DATA_PR-MENGE.
+      READ TABLE GT_EKPO INTO GS_EKPO WITH KEY EBELN = GS_DATA_PR-EBELN EBELP = GS_DATA_PR-EBELP BINARY SEARCH.
+      IF SY-SUBRC = 0.
+        GW_HDRITM-BSMNG = GS_EKPO-MENGE.
+      ENDIF.
+      GW_HDRITM-ZOPEN_QTY = GW_HDRITM-MENGE - GW_HDRITM-BSMNG.
+      GW_HDRITM-MEINS = GS_DATA_PR-MEINS.
+      CONCATENATE GS_DATA_PR-LFDAT+6(2) GS_DATA_PR-LFDAT+4(2) GS_DATA_PR-LFDAT+0(4) INTO GW_HDRITM-LFDAT SEPARATED BY '.'.
+      CONDENSE GW_HDRITM-LFDAT.
+      GW_HDRITM-PREIS = GS_DATA_PR-PREIS.
+      GW_HDRITM-PEINH = GS_DATA_PR-PEINH.
+      GW_HDRITM-BWTAR = GS_DATA_PR-BWTAR.
+      GW_HDRITM-CHARG = GS_DATA_PR-CHARG.
+      GW_HDRITM-KNTTP = GS_DATA_PR-KNTTP.
+      GW_HDRITM-PSTYP = GS_DATA_PR-PSTYP.
+      GW_HDRITM-TXZ01 = GS_DATA_PR-TXZ01.
+      GW_HDRITM-CUOBJ = GS_DATA_PR-CUOBJ.
+      APPEND GW_HDRITM TO GT_HDRITM.
+      IF P_CLEAR = 'X' OR P_UPDATE = 'X'.
+        MOVE-CORRESPONDING GW_HDRITM TO GW_HDRITM_DATA.
+        CLEAR : GW_HDRITM_DATA-BADAT,GW_HDRITM_DATA-LFDAT.
+        GW_HDRITM_DATA-BADAT = GS_DATA_PR-BADAT.
+        GW_HDRITM_DATA-LFDAT = GS_DATA_PR-LFDAT.
+        APPEND GW_HDRITM_DATA TO GT_HDRITM_DATA.
+        CLEAR GW_HDRITM_DATA.
+      ENDIF.
+      CLEAR : GW_HDRITM,GS_DATA_PR,GS_EKKO,GS_EKPO.
+    ENDLOOP.
+
+  ELSEIF P_ACC = 'X'.
+    LOOP AT GT_EBKN INTO GS_EBKN.
+      GW_ACCOUNT-BANFN = GS_EBKN-BANFN.
+      GW_ACCOUNT-BNFPO = GS_EBKN-BNFPO.
+      GW_ACCOUNT-PS_PSP_PNR = GS_EBKN-PS_PSP_PNR.
+      GW_ACCOUNT-VBELN = GS_EBKN-VBELN.
+      GW_ACCOUNT-VBELP = GS_EBKN-VBELP.
+      GW_ACCOUNT-AUFNR = GS_EBKN-AUFNR.
+      GW_ACCOUNT-KOSTL = GS_EBKN-KOSTL.
+      GW_ACCOUNT-MENGE = GS_EBKN-MENGE.
+      GW_ACCOUNT-VPROZ = GS_EBKN-VPROZ.
+      GW_ACCOUNT-SAKTO = GS_EBKN-SAKTO.
+      GW_ACCOUNT-ANLN1 = GS_EBKN-ANLN1.
+      GW_ACCOUNT-ANLN2 = GS_EBKN-ANLN2.
+      GW_ACCOUNT-NPLNR = GS_EBKN-NPLNR.
+      GW_ACCOUNT-ZEBKN = GS_EBKN-ZEBKN.
+      APPEND GW_ACCOUNT TO GT_ACCOUNT.
+      IF P_CLEAR = 'X' OR P_UPDATE = 'X'.
+        MOVE-CORRESPONDING GW_ACCOUNT TO GW_ACCOUNT_DATA.
+        APPEND GW_ACCOUNT_DATA TO GT_ACCOUNT_DATA.
+        CLEAR GW_ACCOUNT_DATA.
+      ENDIF.
+      CLEAR : GW_ACCOUNT,GS_DATA_PR.
+    ENDLOOP.
+
+  ELSEIF P_CUSTOM = 'X'.
+    LOOP AT GT_DATA_PR INTO GS_DATA_PR.
+      GW_CUSTOM-BANFN = GS_DATA_PR-BANFN.
+      GW_CUSTOM-BNFPO = GS_DATA_PR-BNFPO.
+      GW_CUSTOM-ZZJOBTYPE = GS_DATA_PR-ZZJOBTYPE.
+      GW_CUSTOM-ZZLIFNR = GS_DATA_PR-ZZLIFNR.
+      GW_CUSTOM-ZZPRICE = GS_DATA_PR-ZZPRICE.
+      GW_CUSTOM-ZZLAND1 = GS_DATA_PR-ZZLAND1.
+      GW_CUSTOM-ZZUOM = GS_DATA_PR-ZZUOM.
+      GW_CUSTOM-ZZPER = GS_DATA_PR-ZZPER.
+      GW_CUSTOM-ZZBASE_UOM_CONV = GS_DATA_PR-ZZBASE_UOM_CONV.
+      GW_CUSTOM-ZZALT_UOM_CONV = GS_DATA_PR-ZZALT_UOM_CONV.
+      GW_CUSTOM-ZZBASE_UOM = GS_DATA_PR-ZZBASE_UOM.
+      GW_CUSTOM-ZZATWRT = GS_DATA_PR-ZZATWRT.
+      GW_CUSTOM-ZZQUANTITY = GS_DATA_PR-ZZQUANTITY.
+      GW_CUSTOM-ZZBUYER = GS_DATA_PR-ZZBUYER.
+      GW_CUSTOM-ZZCONSP = GS_DATA_PR-ZZCONSP.
+      GW_CUSTOM-ZZCONSP_DIS = GS_DATA_PR-ZZCONSP_DIS.
+      GW_CUSTOM-ZZIED_NO = GS_DATA_PR-ZZIED_NO.
+      GW_CUSTOM-VED_IND = GS_DATA_PR-VED_IND.
+      APPEND GW_CUSTOM TO  GT_CUSTOM.
+      IF P_CLEAR = 'X' OR P_UPDATE = 'X'.
+        MOVE-CORRESPONDING GW_CUSTOM TO GW_CUSTOM_DATA.
+        APPEND GW_CUSTOM_DATA TO GT_CUSTOM_DATA.
+        CLEAR GW_CUSTOM_DATA.
+      ENDIF.
+      CLEAR : GW_CUSTOM,GS_DATA_PR.
+    ENDLOOP.
+
+  ELSEIF P_SERVIC = 'X'.
+    LOOP AT GT_DATA_PR INTO GS_DATA_PR.
+      READ TABLE LT_ESLL INTO LS_ESLL WITH KEY PACKNO = GS_DATA_PR-PACKNO BINARY SEARCH.
+      IF SY-SUBRC = 0.
+        READ TABLE GT_ESLL TRANSPORTING NO FIELDS WITH KEY PACKNO = LS_ESLL-SUB_PACKNO BINARY SEARCH.
+        IF SY-SUBRC = 0.
+          LOOP AT GT_ESLL INTO GS_ESLL FROM SY-TABIX.
+            IF GS_ESLL-PACKNO <> LS_ESLL-SUB_PACKNO.
+              EXIT.
+            ENDIF.
+            GW_SERVICE-BANFN = GS_DATA_PR-BANFN.
+            GW_SERVICE-BNFPO = GS_DATA_PR-BNFPO.
+            GW_SERVICE-EXTROW = GS_ESLL-EXTROW.
+            GW_SERVICE-SRVPOS = GS_ESLL-SRVPOS.
+            GW_SERVICE-KTEXT1 = GS_ESLL-KTEXT1.
+            GW_SERVICE-MENGE = GS_ESLL-MENGE.
+            GW_SERVICE-ACT_MENGE = GS_ESLL-ACT_MENGE.
+            GW_SERVICE-ZOPEN_QTY = GW_SERVICE-MENGE - GW_SERVICE-ACT_MENGE.
+            GW_SERVICE-MEINS = GS_ESLL-MEINS.
+            GW_SERVICE-BRTWR = GS_ESLL-BRTWR.
+            GW_SERVICE-PEINH = GS_ESLL-PEINH.
+            GW_SERVICE-NETWR = GS_ESLL-NETWR.
+            GW_SERVICE-FORMELNR = GS_ESLL-FORMELNR.
+            GW_SERVICE-FRMVAL1 = GS_ESLL-FRMVAL1.
+            GW_SERVICE-FRMVAL2 = GS_ESLL-FRMVAL2.
+            GW_SERVICE-FRMVAL3 = GS_ESLL-FRMVAL3.
+            GW_SERVICE-FRMVAL4 = GS_ESLL-FRMVAL4.
+            GW_SERVICE-FRMVAL5 = GS_ESLL-FRMVAL5.
+            APPEND GW_SERVICE TO GT_SERVICE.
+            IF P_CLEAR = 'X' OR P_UPDATE = 'X'.
+              MOVE-CORRESPONDING GW_SERVICE TO GW_SERVICE_DATA.
+              APPEND GW_SERVICE_DATA TO GT_SERVICE_DATA.
+              CLEAR GW_SERVICE_DATA.
+            ENDIF.
+            CLEAR : GW_SERVICE,GS_ESLL.
+          ENDLOOP.
+        ENDIF.
+      ENDIF.
+      CLEAR : LS_ESLL,GS_DATA_PR.
+    ENDLOOP.
+
+  ELSEIF P_JOB = 'X'.
+    LOOP AT GT_RESB INTO GS_RESB.
+      GW_JOBWORK-BANFN = GS_RESB-BANFN.
+      GW_JOBWORK-BNFPO = GS_RESB-BNFPO.
+      GW_JOBWORK-RSPOS = GS_RESB-RSPOS.
+      GW_JOBWORK-MATNR = GS_RESB-MATNR.
+      GW_JOBWORK-BDMNG = GS_RESB-BDMNG.
+      GW_JOBWORK-MEINS = GS_RESB-MEINS.
+      GW_JOBWORK-ENMNG = GS_RESB-ENMNG.
+      GW_JOBWORK-ZOPEN_QTY = GW_JOBWORK-BDMNG - GW_JOBWORK-ENMNG.
+      GW_JOBWORK-WERKS = GS_RESB-WERKS.
+      GW_JOBWORK-CHARG = GS_RESB-CHARG.
+      GW_JOBWORK-POSTP = GS_RESB-POSTP.
+      GW_JOBWORK-SOBKZ = GS_RESB-SOBKZ.
+      GW_JOBWORK-KDAUF = GS_RESB-KDAUF.
+      GW_JOBWORK-KDPOS = GS_RESB-KDPOS.
+      GW_JOBWORK-AUFNR = GS_RESB-AUFNR.
+      GW_JOBWORK-PSPEL = GS_RESB-PSPEL.
+      APPEND GW_JOBWORK TO GT_JOBWORK.
+      IF P_CLEAR = 'X' OR P_UPDATE = 'X'.
+        MOVE-CORRESPONDING GW_JOBWORK TO GW_JOBWORK_DATA.
+        APPEND GW_JOBWORK_DATA TO GT_JOBWORK_DATA.
+        CLEAR : GW_JOBWORK_DATA.
+      ENDIF.
+      CLEAR : GW_JOBWORK,GS_RESB.
+    ENDLOOP.
+  ENDIF.
+ENDFORM.
+
+FORM FIELDCATALOG_DATA.
+  DATA : L_TABNAME TYPE LVC_S_FCAT-TABNAME VALUE 'GT_HDRITM'.
+  IF P_HDRITM = 'X'.
+    PERFORM FILL_CAT USING : L_TABNAME 'BANFN          ' 'PR No                         ' '' 'X' ,
+                             L_TABNAME 'BNFPO          ' 'PR Item                       ' '' 'X' ,
+                             L_TABNAME 'BADAT          ' 'Requisition Date              ' '' 'X' ,
+                             L_TABNAME 'BSART          ' 'PR Doc Type                   ' '' 'X' ,
+                             L_TABNAME 'EKGRP          ' 'Pur Grp                       ' '' 'X' ,
+                             L_TABNAME 'AFNAM          ' 'Name of requisitioner         ' '' 'X' ,
+                             L_TABNAME 'IDNLF          ' 'Mat No Used by Vendor         ' '' 'X' ,
+                             L_TABNAME 'BEDNR          ' 'Tracking Number               ' '' 'X' ,
+                             L_TABNAME 'MATNR          ' 'Material Code                 ' '' 'X' ,
+                             L_TABNAME 'WERKS          ' 'Plant Code                    ' '' 'X' ,
+                             L_TABNAME 'LGORT          ' 'Sloc                          ' '' 'X' ,
+                             L_TABNAME 'RESWK          ' 'Supplying (issuing) plant     ' '' 'X' ,
+                             L_TABNAME 'MENGE          ' 'Purchase requisition quantity ' '' 'X' ,
+                             L_TABNAME 'BSMNG          ' 'Order Quantity                ' '' 'X' ,
+                             L_TABNAME 'ZOPEN_QTY      ' 'Open Quantity                 ' '' 'X' ,
+                             L_TABNAME 'MEINS          ' 'UOM                           ' '' 'X' ,
+                             L_TABNAME 'LFDAT'         '  Item delivery date            ' '' 'X' ,
+                             L_TABNAME 'PREIS          ' 'Price                         ' '' 'X' ,
+                             L_TABNAME 'PEINH          ' 'Price unit                    ' '' 'X' ,
+                             L_TABNAME 'BWTAR          ' 'Val Type                      ' '' 'X' ,
+                             L_TABNAME 'CHARG          ' 'Batch                         ' '' 'X' ,
+                             L_TABNAME 'KNTTP          ' 'Account Assignment Category   ' '' 'X' ,
+                             L_TABNAME 'PSTYP          ' 'Item category                 ' '' 'X' ,
+                             L_TABNAME 'TXZ01          ' 'Text Line                     ' '' 'X' ,
+                             L_TABNAME 'CUOBJ          ' 'Inter Obj No                  ' '' 'X' .
+
+  ELSEIF P_ACC = 'X'.
+    L_TABNAME = 'GT_ACCOUNT'.
+
+    PERFORM FILL_CAT USING : L_TABNAME 'BANFN          ' 'PR No                         ' '' 'X' ,
+                             L_TABNAME 'BNFPO          ' 'PR Item                       ' '' 'X' ,
+                             L_TABNAME 'PS_PSP_PNR     ' 'WBS Element                   ' '' 'X' ,
+                             L_TABNAME 'VBELN          ' 'Sales Ord No                  ' '' 'X' ,
+                             L_TABNAME 'VBELP          ' 'Sales Item No                 ' '' 'X' ,
+                             L_TABNAME 'AUFNR          ' 'Order Number                  ' '' 'X' ,
+                             L_TABNAME 'KOSTL          ' 'Cost Center                   ' '' 'X' ,
+                             L_TABNAME 'MENGE          ' 'Qty Requested                 ' '' 'X' ,
+                             L_TABNAME 'VPROZ          ' 'Distribution (%)              ' '' 'X' ,
+                             L_TABNAME 'SAKTO          ' 'GL Account                    ' '' 'X' ,
+                             L_TABNAME 'ANLN1          ' 'Asset No                      ' '' 'X' ,
+                             L_TABNAME 'ANLN2          ' 'AssetSubnumber                ' '' 'X' ,
+                             L_TABNAME 'NPLNR          ' 'Network                       ' '' 'X' ,
+                             L_TABNAME 'ZEBKN          ' 'Serial No                     ' '' 'X' .
+
+  ELSEIF P_CUSTOM = 'X'.
+    L_TABNAME = 'GT_CUSTOM'.
+
+    PERFORM FILL_CAT USING : L_TABNAME 'BANFN                     ' 'PR No                         ' '' 'X' ,
+                             L_TABNAME 'BNFPO                     ' 'PR Item                       ' '' 'X' ,
+                             L_TABNAME 'ZZJOBTYPE                 ' 'Job Type                      ' '' 'X' ,
+                             L_TABNAME 'ZZLIFNR                   ' 'Vendor                        ' '' 'X' ,
+                             L_TABNAME 'ZZPRICE                   ' 'Price                         ' '' 'X' ,
+                             L_TABNAME 'ZZLAND1                   ' 'Country                       ' '' 'X' ,
+                             L_TABNAME 'ZZUOM                     ' 'UOM                           ' '' 'X' ,
+                             L_TABNAME 'ZZPER                     ' 'Per                           ' '' 'X' ,
+                             L_TABNAME 'ZZBASE_UOM_CONV           ' 'Per                           ' '' 'X' ,
+                             L_TABNAME 'ZZALT_UOM_CONV            ' 'Per                           ' '' 'X' ,
+                             L_TABNAME 'ZZBASE_UOM                ' 'UOM                           ' '' 'X' ,
+                             L_TABNAME 'ZZATWRT                   ' 'Sort Cate.                    ' '' 'X' ,
+                             L_TABNAME 'ZZQUANTITY                ' 'Quantity                      ' '' 'X' ,
+                             L_TABNAME 'ZZBUYER                   ' 'Buyer Code                    ' '' 'X' ,
+                             L_TABNAME 'ZZCONSP                   ' 'Consumption Pattern           ' '' 'X' ,
+                             L_TABNAME 'ZZCONSP_DIS               ' 'ConsumptionPattern            ' '' 'X' ,
+                             L_TABNAME 'ZZIED_NO                  ' 'IED                           ' '' 'X' ,
+                             L_TABNAME 'VED_IND                   ' 'VED Indicator                 ' '' 'X' .
+
+
+  ELSEIF P_SERVIC = 'X'.
+    L_TABNAME = 'GT_SERVICE'.
+
+    PERFORM FILL_CAT USING : L_TABNAME 'BANFN          ' 'PR No                            ' '' 'X' ,
+                             L_TABNAME 'BNFPO          ' 'PR Item                          ' '' 'X' ,
+                             L_TABNAME 'EXTROW         ' 'Line Number                      ' '' 'X' ,
+                             L_TABNAME 'SRVPOS         ' 'Activity Number                  ' '' 'X' ,
+                             L_TABNAME 'KTEXT1         ' 'Short Text                       ' '' 'X' ,
+                             L_TABNAME 'MENGE          ' 'Quantity with Sign               ' '' 'X' ,
+                             L_TABNAME 'ACT_MENGE      ' 'Purchase Order: Entered Quantity ' '' 'X' ,
+                             L_TABNAME 'ZOPEN_QTY      ' 'Open Qunatity                    ' '' 'X' ,
+                             L_TABNAME 'MEINS          ' 'Base Unit of Measure             ' '' 'X' ,
+                             L_TABNAME 'BRTWR          ' 'Gross Price                      ' '' 'X' ,
+                             L_TABNAME 'PEINH          ' 'Price unit                       ' '' 'X' ,
+                             L_TABNAME 'NETWR          ' 'Net Value of Item                ' '' 'X' ,
+                             L_TABNAME 'FORMELNR       ' 'Formula Number                   ' '' 'X' ,
+                             L_TABNAME 'FRMVAL1        ' 'Formula Value                    ' '' 'X' ,
+                             L_TABNAME 'FRMVAL2        ' 'Formula Value                    ' '' 'X' ,
+                             L_TABNAME 'FRMVAL3        ' 'Formula Value                    ' '' 'X' ,
+                             L_TABNAME 'FRMVAL4        ' 'Formula Value                    ' '' 'X' ,
+                             L_TABNAME 'FRMVAL5        ' 'Formula Value                    ' '' 'X' .
+
+
+  ELSEIF P_JOB = 'X'.
+    L_TABNAME = 'GT_JOBWORK'.
+
+    PERFORM FILL_CAT USING : L_TABNAME 'BANFN                     ' 'PR No                         ' '' 'X' ,
+                             L_TABNAME 'BNFPO                     ' 'PR Item                       ' '' 'X' ,
+                             L_TABNAME 'RSPOS                     ' 'Res Item Number               ' '' 'X' ,
+                             L_TABNAME 'MATNR                     ' 'Material                      ' '' 'X' ,
+                             L_TABNAME 'BDMNG                     ' 'Req Qty                       ' '' 'X' ,
+                             L_TABNAME 'MEINS                     ' 'Base Unit of Measure          ' '' 'X' ,
+                             L_TABNAME 'ENMNG                     ' 'Quantity withdrawn            ' '' 'X' ,
+                             L_TABNAME 'ZOPEN_QTY                 ' 'Open Qty                      ' '' 'X' ,
+                             L_TABNAME 'WERKS                     ' 'Plant                         ' '' 'X' ,
+                             L_TABNAME 'CHARG                     ' 'Batch                         ' '' 'X' ,
+                             L_TABNAME 'POSTP                     ' 'Item Cat                      ' '' 'X' ,
+                             L_TABNAME 'SOBKZ                     ' 'Special Stock                 ' '' 'X' ,
+                             L_TABNAME 'KDAUF                     ' 'Sales Order                   ' '' 'X' ,
+                             L_TABNAME 'KDPOS                     ' 'SO Item                       ' '' 'X' ,
+                             L_TABNAME 'AUFNR                     ' 'Internal Order                ' '' 'X' ,
+                             L_TABNAME 'PSPEL                     ' 'WBS Element                   ' '' 'X' .
+  ENDIF.
+ENDFORM.
+
+FORM FILL_CAT USING P_TABNAME   TYPE SLIS_FIELDCAT_ALV-TABNAME
+                    P_FIELDNAME TYPE SLIS_FIELDCAT_ALV-FIELDNAME
+                    P_SELTEXT   TYPE SLIS_FIELDCAT_ALV-SELTEXT_L
+                    P_NOOUT     TYPE SLIS_FIELDCAT_ALV-NO_OUT
+                    P_KEY       TYPE SLIS_FIELDCAT_ALV-KEY.
+
+  WA_FCATLOG-TABNAME        = P_TABNAME.
+  WA_FCATLOG-FIELDNAME      = P_FIELDNAME.
+  WA_FCATLOG-SELTEXT_L      = P_SELTEXT.
+  WA_FCATLOG-NO_OUT         = P_NOOUT.
+  WA_FCATLOG-KEY            = P_KEY.
+  APPEND WA_FCATLOG TO IT_FCATLOG.
+  CLEAR WA_FCATLOG.
+ENDFORM.
+
+FORM PROCESS_DATA USING    P_ITAB      TYPE ANY TABLE
+                           P_DBTAB     TYPE STRING
+                           P_ALV_TAB   TYPE ANY TABLE
+                           P_HEADER    TYPE C
+                           P_UPDATE    TYPE C
+                           P_CLEAR     TYPE C
+                           P_LAYOUT    TYPE SLIS_LAYOUT_ALV
+                           P_FCATLOG   TYPE STANDARD TABLE.
+  FIELD-SYMBOLS : <FS_ITAB> TYPE STANDARD TABLE,
+                  <FS_ALV>  TYPE STANDARD TABLE.
+  IF <FS_ITAB> IS NOT ASSIGNED.
+    ASSIGN P_ITAB TO <FS_ITAB>.
+  ENDIF.
+  IF <FS_ALV> IS NOT ASSIGNED.
+    ASSIGN P_ALV_TAB TO <FS_ALV>.
+  ENDIF.
+  IF P_UPDATE = 'X'.
+    IF <FS_ITAB> IS NOT INITIAL.
+      MODIFY (P_DBTAB) FROM TABLE <FS_ITAB>.
+      IF SY-SUBRC = 0.
+        COMMIT WORK AND WAIT.
+        MESSAGE : 'Data Save in Table' TYPE 'S'.
+        REFRESH <FS_ITAB>.
+      ENDIF.
+    ENDIF.
+
+  ELSEIF P_CLEAR = 'X'.
+    IF <FS_ITAB> IS NOT INITIAL AND <FS_ITAB> IS ASSIGNED.
+      CLEAR : LV_RECORD_COUNT_DATA.
+      SELECT COUNT(*) INTO LV_RECORD_COUNT_DATA FROM (P_DBTAB).
+      IF LV_RECORD_COUNT_DATA <> 0.
+        DELETE FROM (P_DBTAB).
+        IF SY-SUBRC <> 0.
+          MESSAGE : 'Error while Clear' TYPE 'S' DISPLAY LIKE 'E'.
+        ENDIF.
+      ENDIF.
+
+      MODIFY (P_DBTAB) FROM TABLE <FS_ITAB>.
+      IF SY-SUBRC = 0.
+        COMMIT WORK AND WAIT.
+        MESSAGE : 'Table Clear and Data Save in Table' TYPE 'S'.
+        REFRESH <FS_ITAB>.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+
+  PERFORM DISPLAY USING <FS_ALV> P_FCATLOG P_LAYOUT.
+ENDFORM.
+
+FORM DISPLAY_ALV.
+  WA_LAYOUT-COLWIDTH_OPTIMIZE = 'X'.
+  WA_LAYOUT-ZEBRA = 'X'.
+  WA_LAYOUT-NO_COLHEAD = SPACE.
+
+  IF P_HDRITM = 'X'.
+    PERFORM PROCESS_DATA USING GT_HDRITM_DATA 'ZMM_PR_CUTOVER_1' GT_HDRITM
+      P_HDRITM P_UPDATE P_CLEAR WA_LAYOUT IT_FCATLOG.
+  ELSEIF P_ACC = 'X'.
+    PERFORM PROCESS_DATA USING GT_ACCOUNT_DATA 'ZMM_PR_CUTOVER_2' GT_ACCOUNT
+     P_ACC P_UPDATE P_CLEAR WA_LAYOUT IT_FCATLOG.
+  ELSEIF P_CUSTOM = 'X'.
+    PERFORM PROCESS_DATA USING GT_CUSTOM_DATA 'ZMM_PR_CUTOVER_3' GT_CUSTOM
+      P_CUSTOM P_UPDATE P_CLEAR WA_LAYOUT IT_FCATLOG.
+  ELSEIF P_SERVIC = 'X'.
+    PERFORM PROCESS_DATA USING GT_SERVICE_DATA 'ZMM_PR_CUTOVER_4' GT_SERVICE
+      P_SERVIC P_UPDATE P_CLEAR WA_LAYOUT IT_FCATLOG.
+  ELSEIF P_JOB = 'X'.
+    PERFORM PROCESS_DATA USING GT_JOBWORK_DATA 'ZMM_PR_CUTOVER_5' GT_JOBWORK
+      P_JOB P_UPDATE P_CLEAR WA_LAYOUT IT_FCATLOG.
+  ENDIF.
+ENDFORM.
+
+
+FORM DISPLAY USING GT_OUTTAB  TYPE STANDARD TABLE
+                   PT_FCAT    TYPE STANDARD TABLE
+                   PS_LAYOUT  TYPE SLIS_LAYOUT_ALV.
+  IF GT_OUTTAB IS NOT INITIAL.
+
+    CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+      EXPORTING
+        I_CALLBACK_PROGRAM = SY-REPID
+        IS_LAYOUT          = PS_LAYOUT
+        IT_FIELDCAT        = PT_FCAT
+        I_SAVE             = 'X'
+      TABLES
+        T_OUTTAB           = GT_OUTTAB
+      EXCEPTIONS
+        PROGRAM_ERROR      = 1
+        OTHERS             = 2.
+    IF SY-SUBRC <> 0.
+      MESSAGE 'Error displaying ALV' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+FORM DOWNLOAD_EXCEL_FILE.
+  CALL METHOD CL_GUI_FRONTEND_SERVICES=>FILE_SAVE_DIALOG
+    EXPORTING
+      WINDOW_TITLE              = 'File Directory'
+      DEFAULT_EXTENSION         = 'XLSX'
+      INITIAL_DIRECTORY         = 'D:\'
+    CHANGING
+      FILENAME                  = LV_FILENAME
+      PATH                      = LV_PATH
+      FULLPATH                  = LV_FULLPATH
+      USER_ACTION               = LV_RESULT
+    EXCEPTIONS
+      CNTL_ERROR                = 1
+      ERROR_NO_GUI              = 2
+      NOT_SUPPORTED_BY_GUI      = 3
+      INVALID_DEFAULT_FILE_NAME = 4
+      OTHERS                    = 5.
+  FILENAME = LV_FULLPATH.
+  IF P_HDRITM = 'X'.
+    APPEND VALUE #( FIELD_NAME = 'PR No                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'PR Item                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Requisition Date              ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'PR Doc Type                   ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Pur Grp                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Name of requisitioner         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Mat No Used by Vendor         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Tracking Number               ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Material Code                 ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Plant Code                    ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Sloc                          ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Supplying (issuing) plant     ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Purchase requisition quantity ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Order Quantity                ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Open Quantity                 ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'UOM                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Item delivery date            ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Price                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Price unit                    ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Val Type                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Batch                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Account Assignment Category   ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Item category                 ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Text Line                     ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Inter Obj No                  ' ) TO LT_FILE.
+
+    IF GT_HDRITM[] IS NOT INITIAL.
+      PERFORM DOWNLOAD_FILE_TO_EXCEL USING FILENAME
+                                           GT_HDRITM[]
+                                           LT_FILE[]
+                                     CHANGING
+                                           SY-SUBRC.
+    ENDIF.
+
+  ELSEIF P_ACC = 'X'.
+    APPEND VALUE #( FIELD_NAME = 'PR No                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'PR Item                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'WBS Element                   ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Sales Ord No                  ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Sales Item No                 ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Order Number                  ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Cost Center                   ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Qty Requested                 ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Distribution (%)              ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'GL Account                    ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Asset No                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'AssetSubnumber                ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Network                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Serial No                     ' ) TO LT_FILE.
+
+    IF GT_ACCOUNT[] IS NOT INITIAL.
+      PERFORM DOWNLOAD_FILE_TO_EXCEL USING FILENAME
+                                           GT_ACCOUNT[]
+                                           LT_FILE[]
+                                     CHANGING
+                                           SY-SUBRC.
+    ENDIF.
+
+  ELSEIF P_CUSTOM = 'X'.
+    APPEND VALUE #( FIELD_NAME = 'PR No                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'PR Item                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Job Type                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Vendor                        ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Price                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Country                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'UOM                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Per                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Per                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Per                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'UOM                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Sort Cate.                    ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Quantity                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Buyer Code                    ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Consumption Pattern           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'ConsumptionPattern            ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'IED                           ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'VED Indicator                 ' ) TO LT_FILE.
+
+    IF GT_CUSTOM[] IS NOT INITIAL.
+      PERFORM DOWNLOAD_FILE_TO_EXCEL USING FILENAME
+                                           GT_CUSTOM[]
+                                           LT_FILE[]
+                                     CHANGING
+                                           SY-SUBRC.
+    ENDIF.
+
+  ELSEIF P_JOB = 'X'.
+    APPEND VALUE #( FIELD_NAME = 'PR No                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'PR Item                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Res Item Number               ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Material                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Req Qty                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Base Unit of Measure          ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Quantity withdrawn            ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Open Qty                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Plant                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Batch                         ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Item Cat                      ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Special Stock                 ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Sales Order                   ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'SO Item                       ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'Internal Order                ' ) TO LT_FILE.
+    APPEND VALUE #( FIELD_NAME = 'WBS Element                   ' ) TO LT_FILE.
+
+    IF GT_JOBWORK[] IS NOT INITIAL.
+      PERFORM DOWNLOAD_FILE_TO_EXCEL USING FILENAME
+                                           GT_JOBWORK[]
+                                           LT_FILE[]
+                                     CHANGING
+                                           SY-SUBRC.
+    ENDIF.
+
+  ENDIF.
+ENDFORM.
+
+FORM DOWNLOAD_FILE_TO_EXCEL USING P_FILENAME TYPE STRING
+                                  P_DATA_TAB TYPE STANDARD TABLE
+                                  P_FIELDNAMES TYPE STANDARD TABLE
+                            CHANGING
+                                 P_SUBRC TYPE SY-SUBRC.
+
+  CALL FUNCTION 'GUI_DOWNLOAD'
+    EXPORTING
+      FILENAME                = P_FILENAME
+      FILETYPE                = 'ASC'
+      APPEND                  = ABAP_TRUE
+      WRITE_FIELD_SEPARATOR   = ABAP_TRUE
+    TABLES
+      DATA_TAB                = P_DATA_TAB
+      FIELDNAMES              = P_FIELDNAMES
+    EXCEPTIONS
+      FILE_WRITE_ERROR        = 1
+      NO_BATCH                = 2
+      GUI_REFUSE_FILETRANSFER = 3
+      INVALID_TYPE            = 4
+      NO_AUTHORITY            = 5
+      UNKNOWN_ERROR           = 6
+      HEADER_NOT_ALLOWED      = 7
+      SEPARATOR_NOT_ALLOWED   = 8
+      FILESIZE_NOT_ALLOWED    = 9
+      HEADER_TOO_LONG         = 10
+      DP_ERROR_CREATE         = 11
+      DP_ERROR_SEND           = 12
+      DP_ERROR_WRITE          = 13
+      UNKNOWN_DP_ERROR        = 14
+      ACCESS_DENIED           = 15
+      DP_OUT_OF_MEMORY        = 16
+      DISK_FULL               = 17
+      DP_TIMEOUT              = 18
+      FILE_NOT_FOUND          = 19
+      DATAPROVIDER_EXCEPTION  = 20
+      CONTROL_FLUSH_ERROR     = 21
+      OTHERS                  = 22.
+
+  P_SUBRC = SY-SUBRC.
+
+  IF P_SUBRC = 0.
+    MESSAGE : 'File Download Successfully to Selected Path' TYPE 'I'. "DISPLAY LIKE 'I'.
+  ELSE.
+    MESSAGE : 'Error while Downloading File' TYPE 'S' DISPLAY LIKE 'E'.
+  ENDIF.
+
+ENDFORM.
+
+FORM ALV_OUTPUT .
+  IF P_EXCEL = ' '.
+    PERFORM FIELDCATALOG_DATA.
+    PERFORM DISPLAY_ALV.
+  ELSE.
+    PERFORM DOWNLOAD_EXCEL_FILE.
+  ENDIF.
+ENDFORM.
